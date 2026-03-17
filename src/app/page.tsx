@@ -2,11 +2,11 @@ import Link from 'next/link';
 
 export default function Home() {
   return (
-    <main className="min-h-screen flex items-center justify-center px-6">
+    <main className="min-h-screen flex items-center justify-center px-6 bg-[var(--bg-primary)]">
       <div className="max-w-5xl mx-auto text-center">
         {/* Logo/Brand */}
         <div className="mb-8">
-          <h1 className="text-5xl font-bold mb-3 bg-gradient-to-r from-[var(--accent)] to-[var(--accent-light)] bg-clip-text text-transparent">
+          <h1 className="text-5xl font-bold mb-3 text-[var(--accent)]">
             SubmissionAI
           </h1>
           <p className="text-[var(--text-secondary)] text-lg">
@@ -16,12 +16,12 @@ export default function Home() {
 
         {/* Hero Content */}
         <div className="mb-12">
-          <h2 className="text-4xl md:text-5xl font-bold mb-6 leading-tight">
+          <h2 className="text-4xl md:text-5xl font-bold mb-6 leading-tight text-[var(--text-primary)]">
             Transform Your Insurance Workflow{' '}
-            <span className="text-[var(--accent-light)]">in Minutes</span>
+            <span className="text-[var(--accent)]">in Minutes</span>
           </h2>
           <p className="text-xl text-[var(--text-secondary)] max-w-3xl mx-auto mb-4">
-            From client intake to carrier quotes in <strong className="text-[var(--accent-light)]">30 minutes</strong>—not 4 hours.
+            From client intake to carrier quotes in <strong className="text-[var(--accent)]">30 minutes</strong>—not 4 hours.
           </p>
           <p className="text-lg text-[var(--text-muted)] max-w-2xl mx-auto">
             Auto-generate ACORD forms, match optimal carriers, compare quotes side-by-side, and see real-time ROI metrics.
@@ -30,23 +30,23 @@ export default function Home() {
 
         {/* Key Features */}
         <div className="grid md:grid-cols-3 gap-6 mb-12 max-w-4xl mx-auto">
-          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-6 hover:bg-[var(--bg-card-hover)] transition-colors">
+          <div className="bg-white border border-[var(--border)] rounded-lg p-6 hover:bg-[var(--bg-card-hover)] transition-colors shadow-sm">
             <div className="text-3xl mb-3">📋</div>
-            <h3 className="font-semibold mb-2">Smart Intake</h3>
+            <h3 className="font-semibold mb-2 text-[var(--text-primary)]">Smart Intake</h3>
             <p className="text-sm text-[var(--text-secondary)]">
               Enter client data once. AI extracts from existing docs.
             </p>
           </div>
-          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-6 hover:bg-[var(--bg-card-hover)] transition-colors">
+          <div className="bg-white border border-[var(--border)] rounded-lg p-6 hover:bg-[var(--bg-card-hover)] transition-colors shadow-sm">
             <div className="text-3xl mb-3">🤖</div>
-            <h3 className="font-semibold mb-2">Auto-Generate Forms</h3>
+            <h3 className="font-semibold mb-2 text-[var(--text-primary)]">Auto-Generate Forms</h3>
             <p className="text-sm text-[var(--text-secondary)]">
               ACORD 125, 126 instantly populated. Review and edit.
             </p>
           </div>
-          <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-6 hover:bg-[var(--bg-card-hover)] transition-colors">
+          <div className="bg-white border border-[var(--border)] rounded-lg p-6 hover:bg-[var(--bg-card-hover)] transition-colors shadow-sm">
             <div className="text-3xl mb-3">🎯</div>
-            <h3 className="font-semibold mb-2">Carrier Matching</h3>
+            <h3 className="font-semibold mb-2 text-[var(--text-primary)]">Carrier Matching</h3>
             <p className="text-sm text-[var(--text-secondary)]">
               AI recommends best-fit carriers based on risk profile.
             </p>
@@ -57,7 +57,7 @@ export default function Home() {
         <div>
           <Link
             href="/demo"
-            className="inline-block bg-[var(--accent)] hover:bg-[var(--accent-light)] text-white font-semibold px-8 py-4 rounded-lg text-lg transition-all shadow-lg hover:shadow-[0_0_30px_var(--accent-glow)]"
+            className="inline-block bg-[var(--accent)] hover:bg-[var(--accent-light)] text-white font-semibold px-8 py-4 rounded-lg text-lg transition-all shadow-lg hover:shadow-xl"
           >
             Start Interactive Demo →
           </Link>

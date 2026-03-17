@@ -3,7 +3,16 @@
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
-import { dashboardSubmissions, uploadedDocuments, extractedFields, requiredDocuments, coverLetterPreview, submissionPackageFiles } from '@/lib/synthetic-data';
+import {
+  dashboardSubmissions,
+  uploadedDocuments,
+  extractedFields,
+  requiredDocuments,
+  enhancedCoverLetter,
+  submissionPackageFiles,
+  documentScanProgress,
+  acordFormData,
+} from '@/lib/synthetic-data';
 import { ExtractedField, UploadedDocument, RequiredDocument } from '@/types';
 
 const steps = [
@@ -27,6 +36,7 @@ function SubmissionFlowContent() {
   const [extractedData, setExtractedData] = useState<ExtractedField[]>([]);
   const [requiredDocs, setRequiredDocs] = useState<RequiredDocument[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [scanningDoc, setScanningDoc] = useState<string | null>(null);
   const [formsApproved, setFormsApproved] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
 
@@ -34,17 +44,24 @@ function SubmissionFlowContent() {
 
   useEffect(() => {
     if (currentStepKey === 'upload' && documents.length === 0) {
-      // Auto-load sample data for demo
       setTimeout(() => {
         setDocuments(uploadedDocuments);
       }, 500);
     }
     if (currentStepKey === 'extraction' && extractedData.length === 0 && documents.length > 0) {
       setIsProcessing(true);
+      let totalDelay = 0;
+      documentScanProgress.forEach((scan, idx) => {
+        totalDelay += scan.delay;
+        setTimeout(() => {
+          setScanningDoc(scan.status);
+        }, totalDelay);
+      });
       setTimeout(() => {
+        setScanningDoc(null);
         setExtractedData(extractedFields);
         setIsProcessing(false);
-      }, 2500);
+      }, totalDelay + 800);
     }
     if (currentStepKey === 'missing' && requiredDocs.length === 0) {
       setRequiredDocs(requiredDocuments);
@@ -96,29 +113,26 @@ function SubmissionFlowContent() {
 
   return (
     <div className="min-h-screen bg-[var(--bg-primary)]">
-      {/* Toast Notification */}
       {toast && (
         <div className="fixed top-4 right-4 z-50 bg-[var(--success)] text-white px-6 py-3 rounded-lg shadow-lg animate-fade-in">
-          {toast}
+          ✓ {toast}
         </div>
       )}
 
-      {/* Header */}
-      <header className="bg-[var(--bg-secondary)] border-b border-[var(--border)] sticky top-0 z-10">
+      <header className="bg-[var(--bg-secondary)] border-b border-[var(--border)] sticky top-0 z-10 shadow-sm">
         <div className="max-w-7xl mx-auto px-6 py-4">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-4">
-              <Link href="/demo" className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+              <Link href="/demo" className="text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors">
                 ← Dashboard
               </Link>
               <div>
-                <h1 className="text-xl font-bold">{clientName}</h1>
+                <h1 className="text-xl font-bold text-[var(--text-primary)]">{clientName}</h1>
                 <p className="text-sm text-[var(--text-muted)]">{submission?.id || 'Creating new submission'}</p>
               </div>
             </div>
           </div>
 
-          {/* Progress Indicator */}
           <div className="flex items-center justify-between">
             {steps.map((step, index) => {
               const isCompleted = completedSteps.includes(step.id) || currentStep > step.id;
@@ -134,10 +148,10 @@ function SubmissionFlowContent() {
                       className={`
                         w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold transition-all
                         ${isCurrent
-                          ? 'bg-[var(--accent)] text-white ring-4 ring-[var(--accent)]/20'
+                          ? 'bg-[var(--accent)] text-white ring-4 ring-[var(--accent-glow)]'
                           : isCompleted
                           ? 'bg-[var(--success)] text-white cursor-pointer hover:bg-[var(--success)]/90'
-                          : 'bg-[var(--bg-card)] text-[var(--text-muted)] border border-[var(--border)]'
+                          : 'bg-white text-[var(--text-muted)] border border-[var(--border)]'
                         }
                       `}
                     >
@@ -159,23 +173,21 @@ function SubmissionFlowContent() {
         </div>
       </header>
 
-      {/* Main Content */}
       <main className="max-w-7xl mx-auto px-6 py-8">
         {currentStepKey === 'upload' && <DocumentUploadStep documents={documents} setDocuments={setDocuments} showToast={showToast} />}
-        {currentStepKey === 'extraction' && <DataExtractionStep isProcessing={isProcessing} extractedData={extractedData} setExtractedData={setExtractedData} />}
+        {currentStepKey === 'extraction' && <DataExtractionStep isProcessing={isProcessing} scanningDoc={scanningDoc} extractedData={extractedData} setExtractedData={setExtractedData} />}
         {currentStepKey === 'missing' && <MissingDocumentsStep requiredDocs={requiredDocs} setRequiredDocs={setRequiredDocs} showToast={showToast} />}
         {currentStepKey === 'acord' && <AcordFormsStep formsApproved={formsApproved} setFormsApproved={setFormsApproved} showToast={showToast} />}
         {currentStepKey === 'package' && <SubmissionPackageStep showToast={showToast} />}
 
-        {/* Navigation */}
         <div className="mt-8 flex justify-between">
           <button
             onClick={() => currentStep > 1 && goToStep(steps[currentStep - 2].key)}
             disabled={currentStep === 1}
             className={`px-6 py-3 rounded-lg font-medium transition-colors ${
               currentStep === 1
-                ? 'opacity-50 cursor-not-allowed bg-[var(--bg-card)] text-[var(--text-muted)]'
-                : 'border border-[var(--border)] hover:bg-[var(--bg-card)]'
+                ? 'opacity-50 cursor-not-allowed bg-white text-[var(--text-muted)] border border-[var(--border)]'
+                : 'border border-[var(--border)] bg-white hover:bg-[var(--bg-card-hover)] shadow-sm'
             }`}
           >
             ← Previous
@@ -184,10 +196,10 @@ function SubmissionFlowContent() {
             <button
               onClick={nextStep}
               disabled={!canProceed()}
-              className={`px-8 py-3 rounded-lg font-semibold transition-all shadow-lg ${
+              className={`px-8 py-3 rounded-lg font-semibold transition-all ${
                 canProceed()
-                  ? 'bg-[var(--accent)] hover:bg-[var(--accent-light)] text-white'
-                  : 'bg-[var(--bg-card)] text-[var(--text-muted)] opacity-50 cursor-not-allowed'
+                  ? 'bg-[var(--accent)] hover:bg-[var(--accent-light)] text-white shadow-sm'
+                  : 'bg-gray-100 text-[var(--text-muted)] opacity-50 cursor-not-allowed border border-[var(--border)]'
               }`}
             >
               Continue →
@@ -195,7 +207,7 @@ function SubmissionFlowContent() {
           ) : (
             <Link
               href="/demo"
-              className="bg-[var(--success)] hover:bg-[var(--success)]/90 text-white font-semibold px-8 py-3 rounded-lg transition-all shadow-lg inline-block"
+              className="bg-[var(--success)] hover:bg-[var(--success)]/90 text-white font-semibold px-8 py-3 rounded-lg transition-all shadow-sm inline-block"
             >
               Complete & Return to Dashboard
             </Link>
@@ -232,37 +244,35 @@ function DocumentUploadStep({ documents, setDocuments, showToast }: DocumentUplo
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault();
     setIsDragging(false);
-    // Simulate file upload
     showToast('Files uploaded successfully!');
     handleLoadSampleData();
   };
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-2">Step 1: Document Upload</h2>
+      <h2 className="text-2xl font-bold mb-2 text-[var(--text-primary)]">Step 1: Document Upload</h2>
       <p className="text-[var(--text-secondary)] mb-6">
         Upload required documents for AI data extraction. Files will be processed automatically.
       </p>
 
-      {/* Upload Zone */}
       <div
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
         className={`border-2 border-dashed rounded-lg p-12 mb-6 text-center transition-all cursor-pointer ${
           isDragging
-            ? 'border-[var(--accent)] bg-[var(--accent)]/10'
-            : 'border-[var(--border)] bg-[var(--bg-card)] hover:border-[var(--accent)]'
+            ? 'border-[var(--accent)] bg-[var(--accent-glow)]'
+            : 'border-[var(--border)] bg-white hover:border-[var(--accent)]'
         }`}
       >
         <div className="text-4xl mb-3">📁</div>
-        <h3 className="text-lg font-semibold mb-2">Drag & Drop Files Here</h3>
+        <h3 className="text-lg font-semibold mb-2 text-[var(--text-primary)]">Drag & Drop Files Here</h3>
         <p className="text-sm text-[var(--text-secondary)] mb-4">
           or click to browse your computer
         </p>
         <button
           onClick={handleLoadSampleData}
-          className="px-6 py-2 bg-[var(--accent)] hover:bg-[var(--accent-light)] text-white rounded-lg transition-colors"
+          className="px-6 py-2 bg-[var(--accent)] hover:bg-[var(--accent-light)] text-white rounded-lg transition-colors shadow-sm"
         >
           Load Sample Documents
         </button>
@@ -271,9 +281,8 @@ function DocumentUploadStep({ documents, setDocuments, showToast }: DocumentUplo
         </p>
       </div>
 
-      {/* Documents Needed */}
-      <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-6 mb-6">
-        <h3 className="font-semibold mb-4">Documents Needed</h3>
+      <div className="bg-white border border-[var(--border)] rounded-lg p-6 mb-6 shadow-sm">
+        <h3 className="font-semibold mb-4 text-[var(--text-primary)]">Documents Needed</h3>
         <div className="grid md:grid-cols-2 gap-3">
           {['Dec Pages (Current Coverage)', 'Loss Runs (5 Years)', 'Financial Statements', 'Property Schedule', 'Liquor License Copies', 'Certificate of Occupancy', 'Fire Suppression Reports', 'Auto Schedule (if applicable)'].map((doc) => (
             <div key={doc} className="flex items-center gap-2 text-sm text-[var(--text-secondary)]">
@@ -284,27 +293,26 @@ function DocumentUploadStep({ documents, setDocuments, showToast }: DocumentUplo
         </div>
       </div>
 
-      {/* Uploaded Files */}
       {documents.length > 0 && (
-        <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-6 animate-fade-in">
-          <h3 className="font-semibold mb-4">Uploaded Documents ({documents.length})</h3>
+        <div className="bg-white border border-[var(--border)] rounded-lg p-6 animate-fade-in shadow-sm">
+          <h3 className="font-semibold mb-4 text-[var(--text-primary)]">Uploaded Documents ({documents.length})</h3>
           <div className="space-y-2">
             {documents.map((doc, idx) => (
               <div
                 key={doc.id}
-                className="flex items-center justify-between p-3 bg-[var(--bg-secondary)] rounded-lg animate-slide-in"
+                className="flex items-center justify-between p-3 bg-[var(--bg-primary)] rounded-lg animate-slide-in border border-[var(--border)]"
                 style={{ animationDelay: `${idx * 100}ms` }}
               >
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-[var(--accent)]/20 rounded flex items-center justify-center text-xl">
+                  <div className="w-10 h-10 bg-[var(--accent-glow)] rounded flex items-center justify-center text-xl">
                     📄
                   </div>
                   <div>
-                    <div className="font-medium text-sm">{doc.name}</div>
+                    <div className="font-medium text-sm text-[var(--text-primary)]">{doc.name}</div>
                     <div className="text-xs text-[var(--text-muted)]">{doc.type} · {doc.uploadedAt}</div>
                   </div>
                 </div>
-                <span className="text-[var(--success)] flex items-center gap-1 text-sm">
+                <span className="text-[var(--success)] flex items-center gap-1 text-sm font-medium">
                   <span>✓</span>
                   <span>Ready</span>
                 </span>
@@ -319,20 +327,21 @@ function DocumentUploadStep({ documents, setDocuments, showToast }: DocumentUplo
 
 interface DataExtractionStepProps {
   isProcessing: boolean;
+  scanningDoc: string | null;
   extractedData: ExtractedField[];
   setExtractedData: (data: ExtractedField[]) => void;
 }
 
-function DataExtractionStep({ isProcessing, extractedData, setExtractedData }: DataExtractionStepProps) {
+function DataExtractionStep({ isProcessing, scanningDoc, extractedData, setExtractedData }: DataExtractionStepProps) {
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
 
   const categories = ['Business Info', 'Operations', 'Coverage History', 'Claims History', 'Property Details'];
 
   const getConfidenceColor = (confidence: number) => {
-    if (confidence >= 95) return { text: 'text-[var(--success)]', bg: 'bg-[var(--success)]/20', border: 'border-[var(--success)]' };
-    if (confidence >= 85) return { text: 'text-[var(--warning)]', bg: 'bg-[var(--warning)]/20', border: 'border-[var(--warning)]' };
-    return { text: 'text-[var(--danger)]', bg: 'bg-[var(--danger)]/20', border: 'border-[var(--danger)]' };
+    if (confidence >= 95) return { text: 'text-[var(--success)]', bg: 'bg-green-50', border: 'border-green-200' };
+    if (confidence >= 85) return { text: 'text-[var(--warning)]', bg: 'bg-orange-50', border: 'border-orange-200' };
+    return { text: 'text-[var(--danger)]', bg: 'bg-red-50', border: 'border-red-200' };
   };
 
   const handleEdit = (field: ExtractedField) => {
@@ -357,40 +366,54 @@ function DataExtractionStep({ isProcessing, extractedData, setExtractedData }: D
   if (isProcessing) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <div className="w-16 h-16 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin mb-4"></div>
-        <h2 className="text-2xl font-bold mb-2">Analyzing Documents...</h2>
-        <p className="text-[var(--text-secondary)]">AI is extracting data from uploaded documents</p>
+        <div className="relative mb-6">
+          <div className="w-16 h-16 border-4 border-[var(--accent)] border-t-transparent rounded-full animate-spin"></div>
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="text-2xl animate-sparkle">✨</span>
+          </div>
+        </div>
+        <h2 className="text-2xl font-bold mb-2 text-[var(--text-primary)]">AI Analyzing Documents...</h2>
+        {scanningDoc && (
+          <div className="flex items-center gap-2 text-[var(--text-secondary)] animate-fade-in">
+            <span className="text-[var(--accent)]">✓</span>
+            <span>{scanningDoc}</span>
+          </div>
+        )}
       </div>
     );
   }
 
   return (
     <div className="animate-fade-in">
-      <h2 className="text-2xl font-bold mb-2">Step 2: AI Data Extraction</h2>
+      <div className="flex items-center gap-2 mb-2">
+        <h2 className="text-2xl font-bold text-[var(--text-primary)]">Step 2: AI Data Extraction</h2>
+        <span className="px-2 py-1 bg-[var(--accent-glow)] text-[var(--accent)] text-xs font-semibold rounded flex items-center gap-1">
+          <span className="animate-sparkle">✨</span>
+          <span>AI Generated</span>
+        </span>
+      </div>
       <p className="text-[var(--text-secondary)] mb-6">
         Review extracted data. Fields with low confidence can be edited. Click any flagged field to correct it.
       </p>
 
-      {/* Summary */}
-      <div className="bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded-lg p-4 mb-6">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
         <div className="flex items-center justify-between">
           <div>
-            <span className="font-semibold">{totalFields} fields extracted</span>
+            <span className="font-semibold text-[var(--text-primary)]">{totalFields} fields extracted</span>
             <span className="mx-2 text-[var(--text-muted)]">·</span>
-            <span className="text-[var(--success)]">{verified} verified ({Math.round(verified / totalFields * 100)}%)</span>
+            <span className="text-[var(--success)] font-medium">{verified} verified ({Math.round(verified / totalFields * 100)}%)</span>
             <span className="mx-2 text-[var(--text-muted)]">·</span>
-            <span className="text-[var(--warning)]">{needsReview} need review</span>
+            <span className="text-[var(--warning)] font-medium">{needsReview} need review</span>
           </div>
         </div>
       </div>
 
-      {/* Extracted Data by Category */}
       <div className="space-y-4">
         {categories.map((category) => {
           const fields = extractedData.filter(f => f.category === category);
           return (
-            <div key={category} className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-6">
-              <h3 className="font-semibold mb-4">{category}</h3>
+            <div key={category} className="bg-white border border-[var(--border)] rounded-lg p-6 shadow-sm">
+              <h3 className="font-semibold mb-4 text-[var(--text-primary)]">{category}</h3>
               <div className="grid md:grid-cols-2 gap-4">
                 {fields.map((field) => {
                   const colors = getConfidenceColor(field.confidence);
@@ -402,12 +425,12 @@ function DataExtractionStep({ isProcessing, extractedData, setExtractedData }: D
                     <div
                       key={fieldKey}
                       className={`p-3 rounded-lg border transition-all ${colors.bg} ${colors.border} ${
-                        needsReview && !isEditing ? 'cursor-pointer hover:shadow-lg' : ''
+                        needsReview && !isEditing ? 'cursor-pointer hover:shadow-md' : ''
                       }`}
                       onClick={() => needsReview && !isEditing && handleEdit(field)}
                     >
                       <div className="flex items-start justify-between mb-1">
-                        <div className="text-xs text-[var(--text-muted)]">{field.label}</div>
+                        <div className="text-xs text-[var(--text-muted)] font-medium">{field.label}</div>
                         <div className={`text-xs font-semibold ${colors.text}`}>
                           {field.confidence}%
                         </div>
@@ -418,7 +441,7 @@ function DataExtractionStep({ isProcessing, extractedData, setExtractedData }: D
                             type="text"
                             value={editValue}
                             onChange={(e) => setEditValue(e.target.value)}
-                            className="w-full px-2 py-1 bg-[var(--bg-secondary)] border border-[var(--border)] rounded text-sm"
+                            className="w-full px-2 py-1 bg-white border border-[var(--border)] rounded text-sm"
                             autoFocus
                           />
                           <div className="flex gap-2">
@@ -436,7 +459,7 @@ function DataExtractionStep({ isProcessing, extractedData, setExtractedData }: D
                                 e.stopPropagation();
                                 setEditingField(null);
                               }}
-                              className="px-3 py-1 bg-[var(--bg-secondary)] border border-[var(--border)] rounded text-xs hover:bg-[var(--bg-card)]"
+                              className="px-3 py-1 bg-white border border-[var(--border)] rounded text-xs hover:bg-[var(--bg-card-hover)]"
                             >
                               Cancel
                             </button>
@@ -444,7 +467,7 @@ function DataExtractionStep({ isProcessing, extractedData, setExtractedData }: D
                         </div>
                       ) : (
                         <>
-                          <div className="font-medium text-sm mb-1">{field.value}</div>
+                          <div className="font-medium text-sm mb-1 text-[var(--text-primary)]">{field.value}</div>
                           <div className="text-xs text-[var(--text-muted)]">
                             Source: {field.source}
                             {needsReview && <span className="ml-2 text-[var(--warning)]">· Click to edit</span>}
@@ -489,28 +512,27 @@ function MissingDocumentsStep({ requiredDocs, setRequiredDocs, showToast }: Miss
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-2">Step 3: Missing Documents & Follow-Up</h2>
+      <h2 className="text-2xl font-bold mb-2 text-[var(--text-primary)]">Step 3: Missing Documents & Follow-Up</h2>
       <p className="text-[var(--text-secondary)] mb-6">
         Track required documents and manage automated client follow-ups.
       </p>
 
-      {/* Document Checklist */}
-      <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-6 mb-6">
-        <h3 className="font-semibold mb-4">Document Checklist</h3>
+      <div className="bg-white border border-[var(--border)] rounded-lg p-6 mb-6 shadow-sm">
+        <h3 className="font-semibold mb-4 text-[var(--text-primary)]">Document Checklist</h3>
         <div className="space-y-2">
           {requiredDocs.map((doc, idx) => (
-            <div key={idx} className="flex items-center justify-between p-3 bg-[var(--bg-secondary)] rounded-lg">
+            <div key={idx} className="flex items-center justify-between p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--border)]">
               <div className="flex items-center gap-3 flex-1">
                 <div className={`
-                  w-6 h-6 rounded flex items-center justify-center text-sm
-                  ${doc.status === 'received' ? 'bg-[var(--success)]/20 text-[var(--success)]' :
-                    doc.status === 'requested' ? 'bg-[var(--warning)]/20 text-[var(--warning)]' :
-                    'bg-[var(--danger)]/20 text-[var(--danger)]'}
+                  w-6 h-6 rounded flex items-center justify-center text-sm font-semibold
+                  ${doc.status === 'received' ? 'bg-green-100 text-[var(--success)]' :
+                    doc.status === 'requested' ? 'bg-orange-100 text-[var(--warning)]' :
+                    'bg-red-100 text-[var(--danger)]'}
                 `}>
                   {doc.status === 'received' ? '✓' : doc.status === 'requested' ? '⏳' : '✗'}
                 </div>
                 <div className="flex-1">
-                  <div className="font-medium text-sm">{doc.name}</div>
+                  <div className="font-medium text-sm text-[var(--text-primary)]">{doc.name}</div>
                   {doc.requestedDate && (
                     <div className="text-xs text-[var(--text-muted)]">Requested {doc.requestedDate}</div>
                   )}
@@ -536,10 +558,9 @@ function MissingDocumentsStep({ requiredDocs, setRequiredDocs, showToast }: Miss
         </div>
       </div>
 
-      {/* Follow-Up Email Preview */}
-      <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-6 mb-6">
+      <div className="bg-white border border-[var(--border)] rounded-lg p-6 mb-6 shadow-sm">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold">Automated Follow-Up Email Preview</h3>
+          <h3 className="font-semibold text-[var(--text-primary)]">Automated Follow-Up Email Preview</h3>
           <button
             onClick={() => setEmailExpanded(!emailExpanded)}
             className="text-sm text-[var(--accent)] hover:underline"
@@ -548,7 +569,7 @@ function MissingDocumentsStep({ requiredDocs, setRequiredDocs, showToast }: Miss
           </button>
         </div>
         {emailExpanded && (
-          <div className="bg-[var(--bg-secondary)] rounded-lg p-4 text-sm font-mono animate-fade-in">
+          <div className="bg-[var(--bg-primary)] rounded-lg p-4 text-sm font-mono animate-fade-in border border-[var(--border)]">
             <div className="mb-4 pb-4 border-b border-[var(--border)]">
               <div className="text-[var(--text-muted)]">To:</div>
               <div className="text-[var(--text-primary)]">contact@pacificcoastdining.com</div>
@@ -571,15 +592,14 @@ function MissingDocumentsStep({ requiredDocs, setRequiredDocs, showToast }: Miss
         )}
         <button
           onClick={handleSendFollowUp}
-          className="mt-4 px-6 py-2 bg-[var(--accent)] hover:bg-[var(--accent-light)] text-white rounded-lg transition-colors"
+          className="mt-4 px-6 py-2 bg-[var(--accent)] hover:bg-[var(--accent-light)] text-white rounded-lg transition-colors shadow-sm"
         >
           Send Follow-Up
         </button>
       </div>
 
-      {/* Follow-Up Timeline */}
-      <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-6">
-        <h3 className="font-semibold mb-4">Automated Follow-Up Timeline</h3>
+      <div className="bg-white border border-[var(--border)] rounded-lg p-6 shadow-sm">
+        <h3 className="font-semibold mb-4 text-[var(--text-primary)]">Automated Follow-Up Timeline</h3>
         <div className="space-y-4">
           {[
             { day: 'Day 1', action: 'Initial document request sent', status: 'complete' },
@@ -590,7 +610,7 @@ function MissingDocumentsStep({ requiredDocs, setRequiredDocs, showToast }: Miss
             <div key={idx} className="flex items-center gap-4">
               <div className={`w-3 h-3 rounded-full ${item.status === 'complete' ? 'bg-[var(--success)]' : 'bg-[var(--border)]'}`} />
               <div className="flex-1">
-                <div className="font-medium text-sm">{item.day}</div>
+                <div className="font-medium text-sm text-[var(--text-primary)]">{item.day}</div>
                 <div className="text-xs text-[var(--text-muted)]">{item.action}</div>
               </div>
             </div>
@@ -622,14 +642,440 @@ function AcordFormsStep({ formsApproved, setFormsApproved, showToast }: AcordFor
     showToast('All forms approved successfully!');
   };
 
+  const renderAcord125 = () => (
+    <div className="space-y-8">
+      {/* Agency Info */}
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <h4 className="font-semibold text-sm text-[var(--accent)]">AGENCY INFORMATION</h4>
+          <span className="text-xs px-2 py-0.5 bg-blue-50 text-[var(--accent)] rounded">Auto-filled ✓</span>
+        </div>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Agency Name</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord125.agency.name}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Producer Code</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord125.agency.producerCode}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)] md:col-span-2">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Address</div>
+            <div className="font-medium text-[var(--text-primary)]">
+              {acordFormData.acord125.agency.address}, {acordFormData.acord125.agency.city}, {acordFormData.acord125.agency.state} {acordFormData.acord125.agency.zip}
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Applicant Information */}
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <h4 className="font-semibold text-sm text-[var(--accent)]">APPLICANT INFORMATION</h4>
+          <span className="text-xs px-2 py-0.5 bg-blue-50 text-[var(--accent)] rounded">Auto-filled ✓</span>
+        </div>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Legal Name</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord125.namedInsured.name}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">DBA</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord125.namedInsured.dba}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)] md:col-span-2">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Mailing Address</div>
+            <div className="font-medium text-[var(--text-primary)]">
+              {acordFormData.acord125.namedInsured.mailingAddress}, {acordFormData.acord125.namedInsured.city}, {acordFormData.acord125.namedInsured.state} {acordFormData.acord125.namedInsured.zip}
+            </div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">FEIN</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord125.namedInsured.fein}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Entity Type</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord125.namedInsured.entityType}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Phone</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord125.namedInsured.phone}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Website</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord125.namedInsured.website}</div>
+          </div>
+        </div>
+      </section>
+
+      {/* Nature of Business */}
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <h4 className="font-semibold text-sm text-[var(--accent)]">NATURE OF BUSINESS</h4>
+          <span className="text-xs px-2 py-0.5 bg-blue-50 text-[var(--accent)] rounded">Auto-filled ✓</span>
+        </div>
+        <div className="grid md:grid-cols-3 gap-4 mb-4">
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">NAICS Code</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord125.businessInfo.naicsCode}</div>
+            <div className="text-xs text-[var(--text-muted)] mt-1">{acordFormData.acord125.businessInfo.naicsDescription}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Years in Business</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord125.businessInfo.yearsInBusiness}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Years with Agent</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord125.businessInfo.yearsWithCurrentAgent}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Annual Revenue</div>
+            <div className="font-medium text-[var(--text-primary)]">${acordFormData.acord125.businessInfo.totalAnnualRevenue.toLocaleString()}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Total Employees</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord125.businessInfo.totalEmployees}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Number of Locations</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord125.businessInfo.totalLocations}</div>
+          </div>
+        </div>
+        <div className="p-4 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+          <div className="text-xs text-[var(--text-muted)] mb-2 font-medium">Description of Operations</div>
+          <div className="text-sm text-[var(--text-primary)] leading-relaxed">{acordFormData.acord125.businessInfo.descriptionOfOperations}</div>
+        </div>
+      </section>
+
+      {/* Lines of Business */}
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <h4 className="font-semibold text-sm text-[var(--accent)]">COVERAGES REQUESTED</h4>
+          <span className="text-xs px-2 py-0.5 bg-blue-50 text-[var(--accent)] rounded">Auto-filled ✓</span>
+        </div>
+        <div className="grid md:grid-cols-2 gap-3">
+          {acordFormData.acord125.linesRequested.map((line) => (
+            <div key={line.line} className={`flex items-center gap-2 p-3 rounded border ${
+              line.checked ? 'bg-green-50 border-green-200' : 'bg-[var(--bg-primary)] border-[var(--border)]'
+            }`}>
+              <span className={line.checked ? 'text-[var(--success)]' : 'text-[var(--text-muted)]'}>
+                {line.checked ? '☑' : '☐'}
+              </span>
+              <span className={`font-medium text-sm ${line.checked ? 'text-[var(--text-primary)]' : 'text-[var(--text-muted)]'}`}>{line.line}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      {/* Prior Coverage */}
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <h4 className="font-semibold text-sm text-[var(--accent)]">PRIOR COVERAGE INFORMATION</h4>
+          <span className="text-xs px-2 py-0.5 bg-blue-50 text-[var(--accent)] rounded">Auto-filled ✓</span>
+        </div>
+        <div className="grid md:grid-cols-3 gap-4">
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Prior Carrier</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord125.priorCarrier.name}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Policy Number</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord125.priorCarrier.policyNumber}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Expiration Date</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord125.priorCarrier.expirationDate}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Total Premium</div>
+            <div className="font-medium text-[var(--text-primary)]">${acordFormData.acord125.priorCarrier.totalPremium.toLocaleString()}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Years with Carrier</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord125.priorCarrier.yearsWithCarrier}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Reason for Change</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord125.priorCarrier.reasonForChange}</div>
+          </div>
+        </div>
+      </section>
+
+      {/* Loss History */}
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <h4 className="font-semibold text-sm text-[var(--accent)]">LOSS HISTORY (LAST 5 YEARS)</h4>
+          <span className="text-xs px-2 py-0.5 bg-blue-50 text-[var(--accent)] rounded">Auto-filled ✓</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-[var(--bg-primary)] border-b border-[var(--border)]">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-[var(--text-muted)]">Year</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-[var(--text-muted)]">Date of Loss</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-[var(--text-muted)]">Type</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-[var(--text-muted)]">Description</th>
+                <th className="px-4 py-2 text-right text-xs font-semibold text-[var(--text-muted)]">Amount Paid</th>
+                <th className="px-4 py-2 text-center text-xs font-semibold text-[var(--text-muted)]">Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {acordFormData.acord125.lossHistory.map((claim, idx) => (
+                <tr key={idx} className="border-b border-[var(--border)]">
+                  <td className="px-4 py-3 text-[var(--text-primary)]">{claim.year}</td>
+                  <td className="px-4 py-3 text-[var(--text-primary)]">{claim.dateOfLoss}</td>
+                  <td className="px-4 py-3 text-[var(--text-primary)]">{claim.claimType}</td>
+                  <td className="px-4 py-3 text-[var(--text-secondary)]">{claim.description}</td>
+                  <td className="px-4 py-3 text-right font-medium text-[var(--text-primary)]">${claim.amountPaid.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-center">
+                    <span className="px-2 py-1 rounded text-xs bg-green-50 text-[var(--success)]">
+                      {claim.status}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+
+  const renderAcord126 = () => (
+    <div className="space-y-8">
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <h4 className="font-semibold text-sm text-[var(--accent)]">GENERAL LIABILITY CLASSIFICATION</h4>
+          <span className="text-xs px-2 py-0.5 bg-blue-50 text-[var(--accent)] rounded">Auto-filled ✓</span>
+        </div>
+        <div className="grid md:grid-cols-3 gap-4">
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">GL Classification Code</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord126.classification.code}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)] md:col-span-2">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Description</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord126.classification.description}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Gross Receipts</div>
+            <div className="font-medium text-[var(--text-primary)]">${acordFormData.acord126.classification.grossReceipts.toLocaleString()}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Liquor Receipts</div>
+            <div className="font-medium text-[var(--text-primary)]">${acordFormData.acord126.classification.liquorReceipts.toLocaleString()}</div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <h4 className="font-semibold text-sm text-[var(--accent)]">LIMITS REQUESTED</h4>
+          <span className="text-xs px-2 py-0.5 bg-blue-50 text-[var(--accent)] rounded">Auto-filled ✓</span>
+        </div>
+        <div className="grid md:grid-cols-2 gap-4">
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Each Occurrence</div>
+            <div className="font-medium text-[var(--text-primary)]">${acordFormData.acord126.limitsRequested.eachOccurrence.toLocaleString()}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">General Aggregate</div>
+            <div className="font-medium text-[var(--text-primary)]">${acordFormData.acord126.limitsRequested.generalAggregate.toLocaleString()}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Products/Completed Operations Aggregate</div>
+            <div className="font-medium text-[var(--text-primary)]">${acordFormData.acord126.limitsRequested.productsCompletedOpsAggregate.toLocaleString()}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Personal & Advertising Injury</div>
+            <div className="font-medium text-[var(--text-primary)]">${acordFormData.acord126.limitsRequested.personalAdvertisingInjury.toLocaleString()}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Damage to Rented Premises</div>
+            <div className="font-medium text-[var(--text-primary)]">${acordFormData.acord126.limitsRequested.damageToRentedPremises.toLocaleString()}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Medical Expense (Any One Person)</div>
+            <div className="font-medium text-[var(--text-primary)]">${acordFormData.acord126.limitsRequested.medicalExpense.toLocaleString()}</div>
+          </div>
+        </div>
+      </section>
+
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <h4 className="font-semibold text-sm text-[var(--accent)]">LIQUOR LIABILITY</h4>
+          <span className="text-xs px-2 py-0.5 bg-blue-50 text-[var(--accent)] rounded">Auto-filled ✓</span>
+        </div>
+        <div className="grid md:grid-cols-3 gap-4 mb-4">
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Each Occurrence Limit</div>
+            <div className="font-medium text-[var(--text-primary)]">${acordFormData.acord126.liquorLiability.eachOccurrence.toLocaleString()}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Aggregate Limit</div>
+            <div className="font-medium text-[var(--text-primary)]">${acordFormData.acord126.liquorLiability.aggregate.toLocaleString()}</div>
+          </div>
+          <div className="p-3 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Liquor Sales %</div>
+            <div className="font-medium text-[var(--text-primary)]">{acordFormData.acord126.liquorLiability.liquorSalesPercentage}%</div>
+          </div>
+        </div>
+        <div>
+          <div className="text-xs text-[var(--text-muted)] mb-2 font-medium">Additional Coverages Included</div>
+          <div className="grid md:grid-cols-2 gap-2">
+            {acordFormData.acord126.additionalCoverages.map((coverage) => (
+              <div key={coverage} className="flex items-center gap-2 p-2 bg-green-50 border border-green-200 rounded">
+                <span className="text-[var(--success)]">✓</span>
+                <span className="text-sm text-[var(--text-primary)]">{coverage}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+
+  const renderAcord140 = () => (
+    <div className="space-y-8">
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <h4 className="font-semibold text-sm text-[var(--accent)]">PROPERTY SCHEDULE</h4>
+          <span className="text-xs px-2 py-0.5 bg-blue-50 text-[var(--accent)] rounded">Auto-filled ✓</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-[var(--bg-primary)] border-b border-[var(--border)]">
+              <tr>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[var(--text-muted)]">Location Address</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-[var(--text-muted)]">Building</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-[var(--text-muted)]">Contents</th>
+                <th className="px-3 py-2 text-right text-xs font-semibold text-[var(--text-muted)]">BI Limit</th>
+                <th className="px-3 py-2 text-left text-xs font-semibold text-[var(--text-muted)]">Construction</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-[var(--text-muted)]">Class</th>
+                <th className="px-3 py-2 text-center text-xs font-semibold text-[var(--text-muted)]">Sprinklered</th>
+              </tr>
+            </thead>
+            <tbody>
+              {acordFormData.acord140.locations.map((loc, idx) => (
+                <tr key={idx} className="border-b border-[var(--border)]">
+                  <td className="px-3 py-2 text-[var(--text-primary)]">{loc.address}</td>
+                  <td className="px-3 py-2 text-right text-[var(--text-primary)]">${(loc.buildingValue / 1000).toFixed(0)}K</td>
+                  <td className="px-3 py-2 text-right text-[var(--text-primary)]">${(loc.contentsValue / 1000).toFixed(0)}K</td>
+                  <td className="px-3 py-2 text-right text-[var(--text-primary)]">${(loc.biLimit / 1000).toFixed(0)}K</td>
+                  <td className="px-3 py-2 text-[var(--text-primary)]">{loc.construction}</td>
+                  <td className="px-3 py-2 text-center text-[var(--text-primary)]">{loc.protectionClass}</td>
+                  <td className="px-3 py-2 text-center">
+                    <span className={loc.sprinklered ? 'text-[var(--success)]' : 'text-[var(--text-muted)]'}>
+                      {loc.sprinklered ? '✓' : '✗'}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <h4 className="font-semibold text-sm text-[var(--accent)]">PROPERTY SUMMARY</h4>
+          <span className="text-xs px-2 py-0.5 bg-blue-50 text-[var(--accent)] rounded">Auto-filled ✓</span>
+        </div>
+        <div className="grid md:grid-cols-4 gap-4">
+          <div className="p-4 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Total Building Value</div>
+            <div className="font-medium text-lg text-[var(--text-primary)]">${(acordFormData.acord140.totalBuildingValue / 1000000).toFixed(1)}M</div>
+          </div>
+          <div className="p-4 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Total Contents Value</div>
+            <div className="font-medium text-lg text-[var(--text-primary)]">${(acordFormData.acord140.totalContentsValue / 1000000).toFixed(1)}M</div>
+          </div>
+          <div className="p-4 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Total BI Limit</div>
+            <div className="font-medium text-lg text-[var(--text-primary)]">${(acordFormData.acord140.totalBILimit / 1000000).toFixed(1)}M</div>
+          </div>
+          <div className="p-4 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Deductible</div>
+            <div className="font-medium text-lg text-[var(--text-primary)]">${acordFormData.acord140.deductible.toLocaleString()}</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+
+  const renderAcord130 = () => (
+    <div className="space-y-8">
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <h4 className="font-semibold text-sm text-[var(--accent)]">WORKERS COMPENSATION - CALIFORNIA</h4>
+          <span className="text-xs px-2 py-0.5 bg-blue-50 text-[var(--accent)] rounded">Auto-filled ✓</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-[var(--bg-primary)] border-b border-[var(--border)]">
+              <tr>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-[var(--text-muted)]">Class Code</th>
+                <th className="px-4 py-2 text-left text-xs font-semibold text-[var(--text-muted)]">Description</th>
+                <th className="px-4 py-2 text-right text-xs font-semibold text-[var(--text-muted)]">Payroll</th>
+                <th className="px-4 py-2 text-right text-xs font-semibold text-[var(--text-muted)]">Rate per $100</th>
+                <th className="px-4 py-2 text-right text-xs font-semibold text-[var(--text-muted)]">Premium</th>
+              </tr>
+            </thead>
+            <tbody>
+              {acordFormData.acord130.classificationCodes.map((cls, idx) => (
+                <tr key={idx} className="border-b border-[var(--border)]">
+                  <td className="px-4 py-3 text-[var(--text-primary)]">{cls.code}</td>
+                  <td className="px-4 py-3 text-[var(--text-primary)]">{cls.description}</td>
+                  <td className="px-4 py-3 text-right text-[var(--text-primary)]">${cls.payroll.toLocaleString()}</td>
+                  <td className="px-4 py-3 text-right text-[var(--text-primary)]">${cls.rate.toFixed(2)}</td>
+                  <td className="px-4 py-3 text-right font-medium text-[var(--text-primary)]">${cls.premium.toLocaleString()}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section>
+        <div className="flex items-center gap-2 mb-4">
+          <h4 className="font-semibold text-sm text-[var(--accent)]">WORKERS COMPENSATION SUMMARY</h4>
+          <span className="text-xs px-2 py-0.5 bg-blue-50 text-[var(--accent)] rounded">Auto-filled ✓</span>
+        </div>
+        <div className="grid md:grid-cols-4 gap-4">
+          <div className="p-4 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Total Payroll</div>
+            <div className="font-medium text-lg text-[var(--text-primary)]">${acordFormData.acord130.totalPayroll.toLocaleString()}</div>
+          </div>
+          <div className="p-4 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Experience Mod (EMR)</div>
+            <div className="font-medium text-lg text-[var(--text-primary)]">{acordFormData.acord130.emr}</div>
+          </div>
+          <div className="p-4 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Deductible</div>
+            <div className="font-medium text-lg text-[var(--text-primary)]">${acordFormData.acord130.deductible.toLocaleString()}</div>
+          </div>
+          <div className="p-4 bg-[var(--bg-primary)] rounded border border-[var(--border)]">
+            <div className="text-xs text-[var(--text-muted)] mb-1 font-medium">Estimated Premium</div>
+            <div className="font-medium text-lg text-[var(--text-primary)]">${acordFormData.acord130.totalPremium.toLocaleString()}</div>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-2">Step 4: ACORD Forms Auto-Fill</h2>
+      <div className="flex items-center gap-2 mb-2">
+        <h2 className="text-2xl font-bold text-[var(--text-primary)]">Step 4: ACORD Forms Auto-Fill</h2>
+        <span className="px-2 py-1 bg-[var(--accent-glow)] text-[var(--accent)] text-xs font-semibold rounded flex items-center gap-1">
+          <span className="animate-sparkle">✨</span>
+          <span>AI Generated</span>
+        </span>
+      </div>
       <p className="text-[var(--text-secondary)] mb-6">
-        Review auto-populated ACORD forms. Click tabs to switch between forms.
+        Review auto-populated ACORD forms. Click tabs to switch between forms. All data extracted from uploaded documents.
       </p>
 
-      {/* Form Tabs */}
       <div className="flex gap-2 mb-6 border-b border-[var(--border)]">
         {forms.map((form) => (
           <button
@@ -649,15 +1095,14 @@ function AcordFormsStep({ formsApproved, setFormsApproved, showToast }: AcordFor
         ))}
       </div>
 
-      {/* Form Content */}
-      <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-6 mb-6 animate-fade-in">
+      <div className="bg-white border border-[var(--border)] rounded-lg p-6 mb-6 animate-fade-in shadow-sm">
         {forms.map((form) => {
           if (selectedForm !== form.id) return null;
           return (
             <div key={form.id}>
               <div className="flex items-start justify-between mb-6">
                 <div>
-                  <h3 className="text-xl font-bold mb-1">{form.name}</h3>
+                  <h3 className="text-xl font-bold mb-1 text-[var(--text-primary)]">{form.name}</h3>
                   <p className="text-sm text-[var(--text-secondary)]">{form.subtitle}</p>
                 </div>
                 <div className="text-right">
@@ -666,69 +1111,22 @@ function AcordFormsStep({ formsApproved, setFormsApproved, showToast }: AcordFor
                 </div>
               </div>
 
-              {/* Simulated Form Preview */}
-              <div className="space-y-6">
-                <section>
-                  <h4 className="font-semibold mb-3 text-sm text-[var(--accent-light)]">SECTION 1: NAMED INSURED</h4>
-                  <div className="grid md:grid-cols-2 gap-4">
-                    <div className="p-3 bg-[var(--bg-secondary)] rounded">
-                      <div className="text-xs text-[var(--text-muted)] mb-1">Legal Name</div>
-                      <div className="font-medium">Pacific Coast Dining Group, Inc.</div>
-                    </div>
-                    <div className="p-3 bg-[var(--bg-secondary)] rounded">
-                      <div className="text-xs text-[var(--text-muted)] mb-1">DBA</div>
-                      <div className="font-medium">Pacific Coast Dining</div>
-                    </div>
-                    <div className="p-3 bg-[var(--bg-secondary)] rounded md:col-span-2">
-                      <div className="text-xs text-[var(--text-muted)] mb-1">Mailing Address</div>
-                      <div className="font-medium">4200 Harbor Boulevard, Suite 300, Costa Mesa, CA 92626</div>
-                    </div>
-                  </div>
-                </section>
-
-                <section>
-                  <h4 className="font-semibold mb-3 text-sm text-[var(--accent-light)]">SECTION 2: BUSINESS INFORMATION</h4>
-                  <div className="grid md:grid-cols-3 gap-4">
-                    <div className="p-3 bg-[var(--bg-secondary)] rounded">
-                      <div className="text-xs text-[var(--text-muted)] mb-1">NAICS Code</div>
-                      <div className="font-medium">722511</div>
-                    </div>
-                    <div className="p-3 bg-[var(--bg-secondary)] rounded">
-                      <div className="text-xs text-[var(--text-muted)] mb-1">Years in Business</div>
-                      <div className="font-medium">14</div>
-                    </div>
-                    <div className="p-3 bg-[var(--bg-secondary)] rounded">
-                      <div className="text-xs text-[var(--text-muted)] mb-1">Annual Revenue</div>
-                      <div className="font-medium">$12,000,000</div>
-                    </div>
-                  </div>
-                </section>
-
-                <section>
-                  <h4 className="font-semibold mb-3 text-sm text-[var(--accent-light)]">SECTION 3: COVERAGE REQUESTED</h4>
-                  <div className="grid md:grid-cols-2 gap-3">
-                    {['General Liability', 'Property', 'Liquor Liability', 'Workers Compensation', 'Commercial Umbrella'].map((line) => (
-                      <div key={line} className="flex items-center gap-2 p-3 bg-[var(--bg-secondary)] rounded">
-                        <span className="text-[var(--success)]">☑</span>
-                        <span className="font-medium text-sm">{line}</span>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              </div>
+              {selectedForm === 'acord-125' && renderAcord125()}
+              {selectedForm === 'acord-126' && renderAcord126()}
+              {selectedForm === 'acord-140' && renderAcord140()}
+              {selectedForm === 'acord-130' && renderAcord130()}
             </div>
           );
         })}
       </div>
 
-      {/* Approval */}
-      <div className={`flex items-center justify-between rounded-lg p-4 border transition-colors ${
+      <div className={`flex items-center justify-between rounded-lg p-4 border transition-colors shadow-sm ${
         formsApproved
-          ? 'bg-[var(--success)]/10 border-[var(--success)]/30'
-          : 'bg-[var(--accent)]/10 border-[var(--accent)]/30'
+          ? 'bg-green-50 border-green-200'
+          : 'bg-blue-50 border-blue-200'
       }`}>
         <div>
-          <div className="font-semibold">
+          <div className="font-semibold text-[var(--text-primary)]">
             {formsApproved ? '✓ All forms approved' : 'All forms ready for review'}
           </div>
           <div className="text-sm text-[var(--text-secondary)]">
@@ -738,7 +1136,7 @@ function AcordFormsStep({ formsApproved, setFormsApproved, showToast }: AcordFor
         {!formsApproved && (
           <button
             onClick={handleApproveAll}
-            className="px-6 py-2 bg-[var(--accent)] hover:bg-[var(--accent-light)] text-white rounded-lg transition-colors font-medium"
+            className="px-6 py-2 bg-[var(--accent)] hover:bg-[var(--accent-light)] text-white rounded-lg transition-colors font-medium shadow-sm"
           >
             Approve All Forms
           </button>
@@ -765,13 +1163,18 @@ function SubmissionPackageStep({ showToast }: SubmissionPackageStepProps) {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold mb-2">Step 5: Submission Package</h2>
+      <div className="flex items-center gap-2 mb-2">
+        <h2 className="text-2xl font-bold text-[var(--text-primary)]">Step 5: Submission Package</h2>
+        <span className="px-2 py-1 bg-[var(--accent-glow)] text-[var(--accent)] text-xs font-semibold rounded flex items-center gap-1">
+          <span className="animate-sparkle">✨</span>
+          <span>AI Generated</span>
+        </span>
+      </div>
       <p className="text-[var(--text-secondary)] mb-6">
         Your complete submission package is assembled and ready to send to carriers.
       </p>
 
-      {/* Processing Time Banner */}
-      <div className="bg-[var(--success)]/10 border border-[var(--success)]/30 rounded-lg p-4 mb-6">
+      <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
         <div className="flex items-center justify-between">
           <div>
             <div className="font-semibold text-[var(--success)]">✓ Package Complete</div>
@@ -783,37 +1186,36 @@ function SubmissionPackageStep({ showToast }: SubmissionPackageStepProps) {
         </div>
       </div>
 
-      {/* File Tree */}
-      <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-6 mb-6">
-        <h3 className="font-semibold mb-4">Package Contents</h3>
+      <div className="bg-white border border-[var(--border)] rounded-lg p-6 mb-6 shadow-sm">
+        <h3 className="font-semibold mb-4 text-[var(--text-primary)]">Package Contents</h3>
         <div className="space-y-1 font-mono text-sm">
-          <div className="flex items-center gap-2 p-2 hover:bg-[var(--bg-secondary)] rounded">
+          <div className="flex items-center gap-2 p-2 hover:bg-[var(--bg-primary)] rounded transition-colors">
             <span className="text-xl">📁</span>
-            <span className="font-semibold">Pacific Coast Dining Group — Submission Package</span>
+            <span className="font-semibold text-[var(--text-primary)]">Pacific Coast Dining Group — Submission Package</span>
           </div>
           <div className="ml-6 space-y-1">
             {submissionPackageFiles.map((file, idx) => (
               <div key={idx}>
                 {file.type === 'file' ? (
-                  <div className="flex items-center gap-2 p-2 hover:bg-[var(--bg-secondary)] rounded cursor-pointer transition-colors">
+                  <div className="flex items-center gap-2 p-2 hover:bg-[var(--bg-primary)] rounded cursor-pointer transition-colors">
                     <span className="text-lg">📄</span>
-                    <span className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">{file.name}</span>
+                    <span className="text-[var(--text-secondary)]">{file.name}</span>
                   </div>
                 ) : (
                   <div>
                     <button
                       onClick={() => setExpandedFolder(expandedFolder === file.name ? null : file.name)}
-                      className="flex items-center gap-2 p-2 hover:bg-[var(--bg-secondary)] rounded w-full text-left transition-colors"
+                      className="flex items-center gap-2 p-2 hover:bg-[var(--bg-primary)] rounded w-full text-left transition-colors"
                     >
                       <span className="text-xl">{expandedFolder === file.name ? '📂' : '📁'}</span>
-                      <span className="font-semibold">{file.name}</span>
+                      <span className="font-semibold text-[var(--text-primary)]">{file.name}</span>
                     </button>
                     {expandedFolder === file.name && (
                       <div className="ml-6 space-y-1 animate-fade-in">
                         {file.children?.map((child, childIdx) => (
-                          <div key={childIdx} className="flex items-center gap-2 p-2 hover:bg-[var(--bg-secondary)] rounded cursor-pointer transition-colors">
+                          <div key={childIdx} className="flex items-center gap-2 p-2 hover:bg-[var(--bg-primary)] rounded cursor-pointer transition-colors">
                             <span className="text-lg">📄</span>
-                            <span className="text-[var(--text-secondary)] hover:text-[var(--text-primary)]">{child.name}</span>
+                            <span className="text-[var(--text-secondary)]">{child.name}</span>
                           </div>
                         ))}
                       </div>
@@ -826,24 +1228,22 @@ function SubmissionPackageStep({ showToast }: SubmissionPackageStepProps) {
         </div>
       </div>
 
-      {/* Cover Letter Preview */}
-      <div className="bg-[var(--bg-card)] border border-[var(--border)] rounded-lg p-6 mb-6">
-        <h3 className="font-semibold mb-4">AI-Generated Cover Letter</h3>
-        <div className="bg-[var(--bg-secondary)] rounded-lg p-4 text-sm whitespace-pre-line text-[var(--text-secondary)] max-h-96 overflow-y-auto">
-          {coverLetterPreview}
+      <div className="bg-white border border-[var(--border)] rounded-lg p-6 mb-6 shadow-sm">
+        <h3 className="font-semibold mb-4 text-[var(--text-primary)]">AI-Generated Cover Letter</h3>
+        <div className="bg-[var(--bg-primary)] rounded-lg p-4 text-sm whitespace-pre-line text-[var(--text-secondary)] max-h-96 overflow-y-auto border border-[var(--border)]">
+          {enhancedCoverLetter}
         </div>
       </div>
 
-      {/* Summary Stats */}
-      <div className="bg-[var(--accent)]/10 border border-[var(--accent)]/30 rounded-lg p-6 mb-6">
-        <h3 className="font-semibold mb-4">Processing Summary</h3>
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+        <h3 className="font-semibold mb-4 text-[var(--text-primary)]">Processing Summary</h3>
         <div className="grid md:grid-cols-3 gap-6 text-center">
           <div>
-            <div className="text-3xl font-bold text-[var(--accent-light)]">47</div>
+            <div className="text-3xl font-bold text-[var(--accent)]">47</div>
             <div className="text-sm text-[var(--text-secondary)]">Fields Processed</div>
           </div>
           <div>
-            <div className="text-3xl font-bold text-[var(--accent-light)]">4</div>
+            <div className="text-3xl font-bold text-[var(--accent)]">4</div>
             <div className="text-sm text-[var(--text-secondary)]">Forms Generated</div>
           </div>
           <div>
@@ -853,18 +1253,17 @@ function SubmissionPackageStep({ showToast }: SubmissionPackageStepProps) {
         </div>
       </div>
 
-      {/* Actions */}
       <div className="grid md:grid-cols-2 gap-4">
         <button
           onClick={handleDownload}
-          className="flex items-center justify-center gap-2 px-6 py-3 bg-[var(--accent)] hover:bg-[var(--accent-light)] text-white rounded-lg transition-all font-medium"
+          className="flex items-center justify-center gap-2 px-6 py-3 bg-[var(--accent)] hover:bg-[var(--accent-light)] text-white rounded-lg transition-all font-medium shadow-sm"
         >
           <span className="text-xl">⬇</span>
           <span>Download Package (ZIP)</span>
         </button>
         <button
           onClick={handleExport}
-          className="flex items-center justify-center gap-2 px-6 py-3 border border-[var(--border)] hover:bg-[var(--bg-card)] rounded-lg transition-all font-medium"
+          className="flex items-center justify-center gap-2 px-6 py-3 border border-[var(--border)] bg-white hover:bg-[var(--bg-card-hover)] rounded-lg transition-all font-medium shadow-sm"
         >
           <span className="text-xl">📤</span>
           <span>Export to AMS360</span>
