@@ -75,4 +75,41 @@ export interface RoiMetrics {
   avgCommissionPerPolicy: number;
 }
 
-export type DemoStep = 'intake' | 'acord' | 'carriers' | 'quotes' | 'roi';
+export type SubmissionStatus = 
+  | 'document-collection' 
+  | 'data-extraction' 
+  | 'forms-review' 
+  | 'package-ready';
+
+export interface Submission {
+  id: string;
+  clientName: string;
+  linesOfBusiness: string[];
+  status: SubmissionStatus;
+  progressPercent: number;
+  dateCreated: string;
+  assignedBroker: string;
+  client?: ClientInfo;
+}
+
+export interface ExtractedField {
+  category: string;
+  label: string;
+  value: string;
+  confidence: number; // 0-100
+  source: string;
+}
+
+export interface UploadedDocument {
+  id: string;
+  name: string;
+  type: string;
+  status: 'uploaded' | 'processing' | 'extracted';
+  uploadedAt: string;
+}
+
+export interface RequiredDocument {
+  name: string;
+  status: 'received' | 'missing' | 'requested';
+  requestedDate?: string;
+}
