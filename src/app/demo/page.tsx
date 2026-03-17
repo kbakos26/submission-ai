@@ -34,7 +34,7 @@ export default function DashboardPage() {
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
           <div className="flex items-center gap-8">
             <Link href="/">
-              <h1 className="text-2xl font-bold bg-gradient-to-r from-[var(--accent)] to-[var(--accent-light)] bg-clip-text text-transparent">
+              <h1 className="text-2xl font-bold bg-gradient-to-r from-[var(--accent)] to-[var(--accent-light)] bg-clip-text text-transparent cursor-pointer hover:opacity-80 transition-opacity">
                 SubmissionAI
               </h1>
             </Link>
@@ -88,7 +88,7 @@ export default function DashboardPage() {
               className="px-4 py-2 bg-[var(--bg-card)] border border-[var(--border)] rounded-lg focus:outline-none focus:border-[var(--accent)] text-sm w-64"
             />
             <Link
-              href="/demo/submission/new"
+              href="/demo/submission/new?step=upload"
               className="bg-[var(--accent)] hover:bg-[var(--accent-light)] text-white font-semibold px-6 py-2 rounded-lg transition-all shadow-lg flex items-center gap-2"
             >
               <span className="text-lg">+</span>
@@ -114,6 +114,12 @@ export default function DashboardPage() {
             <tbody>
               {filteredSubmissions.map((submission) => {
                 const config = statusConfig[submission.status];
+                // Determine starting step based on status
+                let startStep = 'upload';
+                if (submission.status === 'data-extraction') startStep = 'extraction';
+                else if (submission.status === 'forms-review') startStep = 'acord';
+                else if (submission.status === 'package-ready') startStep = 'package';
+                
                 return (
                   <tr
                     key={submission.id}
@@ -144,7 +150,7 @@ export default function DashboardPage() {
                       <div className="flex items-center gap-2">
                         <div className="flex-1 h-2 bg-[var(--bg-secondary)] rounded-full overflow-hidden">
                           <div
-                            className="h-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-light)]"
+                            className="h-full bg-gradient-to-r from-[var(--accent)] to-[var(--accent-light)] transition-all"
                             style={{ width: `${submission.progressPercent}%` }}
                           />
                         </div>
@@ -161,8 +167,8 @@ export default function DashboardPage() {
                     </td>
                     <td className="px-6 py-4">
                       <Link
-                        href={`/demo/submission/${submission.id}`}
-                        className="text-[var(--accent)] hover:text-[var(--accent-light)] font-medium text-sm"
+                        href={`/demo/submission/${submission.id}?step=${startStep}`}
+                        className="text-[var(--accent)] hover:text-[var(--accent-light)] font-medium text-sm transition-colors"
                       >
                         View →
                       </Link>
