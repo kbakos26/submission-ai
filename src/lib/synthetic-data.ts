@@ -177,3 +177,182 @@ export const roiMetrics: RoiMetrics = {
   additionalPoliciesPerMonth: 8,
   avgCommissionPerPolicy: 2400,
 };
+
+// Dashboard Submissions
+import { Submission, ExtractedField, UploadedDocument, RequiredDocument } from '@/types';
+
+export const dashboardSubmissions: Submission[] = [
+  {
+    id: 'sub-001',
+    clientName: 'Pacific Coast Dining Group',
+    linesOfBusiness: ['GL', 'Property', 'Liquor', 'WC', 'Umbrella'],
+    status: 'package-ready',
+    progressPercent: 100,
+    dateCreated: '2025-03-10',
+    assignedBroker: 'Sarah Chen',
+    client: sampleClient,
+  },
+  {
+    id: 'sub-002',
+    clientName: 'Sunset Manufacturing LLC',
+    linesOfBusiness: ['GL', 'Property', 'Auto', 'WC'],
+    status: 'forms-review',
+    progressPercent: 75,
+    dateCreated: '2025-03-14',
+    assignedBroker: 'Mike Rodriguez',
+  },
+  {
+    id: 'sub-003',
+    clientName: 'TechBridge Consulting Inc',
+    linesOfBusiness: ['GL', 'E&O', 'Cyber'],
+    status: 'data-extraction',
+    progressPercent: 45,
+    dateCreated: '2025-03-15',
+    assignedBroker: 'Sarah Chen',
+  },
+  {
+    id: 'sub-004',
+    clientName: 'Golden Gate Logistics',
+    linesOfBusiness: ['GL', 'Auto', 'Cargo', 'WC'],
+    status: 'document-collection',
+    progressPercent: 20,
+    dateCreated: '2025-03-16',
+    assignedBroker: 'David Park',
+  },
+  {
+    id: 'sub-005',
+    clientName: 'Alpine Construction Group',
+    linesOfBusiness: ['GL', 'Property', 'WC', 'Builders Risk'],
+    status: 'data-extraction',
+    progressPercent: 60,
+    dateCreated: '2025-03-17',
+    assignedBroker: 'Mike Rodriguez',
+  },
+];
+
+export const uploadedDocuments: UploadedDocument[] = [
+  {
+    id: 'doc-001',
+    name: 'Loss_Runs_2022-2025.pdf',
+    type: 'Loss Runs',
+    status: 'extracted',
+    uploadedAt: '2025-03-10 09:23 AM',
+  },
+  {
+    id: 'doc-002',
+    name: 'Dec_Pages_Current.pdf',
+    type: 'Dec Pages',
+    status: 'extracted',
+    uploadedAt: '2025-03-10 09:24 AM',
+  },
+  {
+    id: 'doc-003',
+    name: 'Financial_Statements_2024.pdf',
+    type: 'Financials',
+    status: 'extracted',
+    uploadedAt: '2025-03-10 09:25 AM',
+  },
+  {
+    id: 'doc-004',
+    name: 'Property_Schedule.xlsx',
+    type: 'Property Schedule',
+    status: 'extracted',
+    uploadedAt: '2025-03-10 09:26 AM',
+  },
+];
+
+export const requiredDocuments: RequiredDocument[] = [
+  { name: 'Dec Pages (Current Coverage)', status: 'received' },
+  { name: 'Loss Runs (5 Years)', status: 'received' },
+  { name: 'Financial Statements (Most Recent)', status: 'received' },
+  { name: 'Property Schedule (All Locations)', status: 'received' },
+  { name: 'Liquor License Copies', status: 'missing' },
+  { name: 'Certificate of Occupancy', status: 'missing' },
+  { name: 'Fire Suppression System Inspection Reports', status: 'requested', requestedDate: '2025-03-12' },
+];
+
+export const extractedFields: ExtractedField[] = [
+  // Business Info
+  { category: 'Business Info', label: 'Legal Name', value: 'Pacific Coast Dining Group, Inc.', confidence: 98, source: 'Dec Pages' },
+  { category: 'Business Info', label: 'DBA', value: 'Pacific Coast Dining', confidence: 95, source: 'Dec Pages' },
+  { category: 'Business Info', label: 'FEIN', value: '94-1234567', confidence: 99, source: 'Financial Statements' },
+  { category: 'Business Info', label: 'Entity Type', value: 'Corporation', confidence: 100, source: 'Dec Pages' },
+  { category: 'Business Info', label: 'NAICS Code', value: '722511', confidence: 97, source: 'Dec Pages' },
+  { category: 'Business Info', label: 'Mailing Address', value: '4200 Harbor Boulevard, Suite 300, Costa Mesa, CA 92626', confidence: 99, source: 'Dec Pages' },
+  { category: 'Business Info', label: 'Phone', value: '(714) 555-0189', confidence: 100, source: 'Dec Pages' },
+  { category: 'Business Info', label: 'Website', value: 'www.pacificcoastdining.com', confidence: 96, source: 'Dec Pages' },
+  
+  // Operations
+  { category: 'Operations', label: 'Years in Business', value: '14', confidence: 99, source: 'Dec Pages' },
+  { category: 'Operations', label: 'Annual Revenue', value: '$12,000,000', confidence: 99, source: 'Financial Statements' },
+  { category: 'Operations', label: 'Employee Count', value: '180', confidence: 95, source: 'Dec Pages' },
+  { category: 'Operations', label: 'Number of Locations', value: '8', confidence: 100, source: 'Property Schedule' },
+  { category: 'Operations', label: 'Description', value: 'Full-service restaurant chain operating 8 locations across Southern California...', confidence: 92, source: 'Dec Pages' },
+  
+  // Coverage History
+  { category: 'Coverage History', label: 'Prior Carrier', value: 'Nationwide Commercial', confidence: 100, source: 'Dec Pages' },
+  { category: 'Coverage History', label: 'Prior Policy Number', value: 'NW-CGL-2024-88412', confidence: 100, source: 'Dec Pages' },
+  { category: 'Coverage History', label: 'Expiration Date', value: '2025-06-15', confidence: 100, source: 'Dec Pages' },
+  { category: 'Coverage History', label: 'Prior Premium', value: '$52,400', confidence: 98, source: 'Dec Pages' },
+  { category: 'Coverage History', label: 'Years with Prior Carrier', value: '3', confidence: 95, source: 'Dec Pages' },
+  
+  // Claims (flagged)
+  { category: 'Claims History', label: '2024 Claim Count', value: '1', confidence: 100, source: 'Loss Runs' },
+  { category: 'Claims History', label: '2024 Total Incurred', value: '$18,500', confidence: 100, source: 'Loss Runs' },
+  { category: 'Claims History', label: '2023 Claim Count', value: '2', confidence: 100, source: 'Loss Runs' },
+  { category: 'Claims History', label: '2023 Total Incurred', value: '$47,000', confidence: 100, source: 'Loss Runs' },
+  { category: 'Claims History', label: '2022 Claim Count', value: '1', confidence: 100, source: 'Loss Runs' },
+  { category: 'Claims History', label: '2022 Total Incurred', value: '$8,900', confidence: 100, source: 'Loss Runs' },
+  { category: 'Claims History', label: 'Open Claims', value: '0', confidence: 100, source: 'Loss Runs' },
+  
+  // Property Details (some flagged)
+  { category: 'Property Details', label: 'Total Building Value', value: '$8,500,000', confidence: 93, source: 'Property Schedule' },
+  { category: 'Property Details', label: 'Total Contents Value', value: '$2,100,000', confidence: 89, source: 'Property Schedule' },
+  { category: 'Property Details', label: 'Business Income Limit', value: '$2,000,000', confidence: 82, source: 'Property Schedule' },
+  { category: 'Property Details', label: 'Construction Type', value: 'Mixed (4 Frame / 4 Masonry)', confidence: 91, source: 'Property Schedule' },
+  { category: 'Property Details', label: 'Protection Class', value: 'Average: Class 4', confidence: 95, source: 'Property Schedule' },
+  { category: 'Property Details', label: 'Sprinklered', value: 'Yes - All Locations', confidence: 98, source: 'Property Schedule' },
+];
+
+export const submissionPackageFiles = [
+  { name: 'Cover Letter.pdf', type: 'file' },
+  { name: 'ACORD 125 — Commercial Application.pdf', type: 'file' },
+  { name: 'ACORD 126 — General Liability.pdf', type: 'file' },
+  { name: 'ACORD 140 — Property Section.pdf', type: 'file' },
+  { name: 'ACORD 130 — Workers Compensation.pdf', type: 'file' },
+  { name: 'Supporting Documents', type: 'folder', children: [
+    { name: 'Loss Runs 2022-2025.pdf', type: 'file' },
+    { name: 'Financial Statements 2024.pdf', type: 'file' },
+    { name: 'Property Schedule.pdf', type: 'file' },
+    { name: 'Dec Pages Current.pdf', type: 'file' },
+  ]},
+];
+
+export const coverLetterPreview = `Dear Underwriter,
+
+We are pleased to present the commercial insurance submission for Pacific Coast Dining Group, Inc., a well-established restaurant chain operating 8 locations across Southern California.
+
+BUSINESS OVERVIEW:
+Pacific Coast Dining Group has been in operation for 14 years, generating $12M in annual revenue with 180 employees. The operation includes full-service dining, takeout, catering services, and private events. All locations serve alcohol under appropriate liquor licenses.
+
+COVERAGE REQUESTED:
+- General Liability: $2M per occurrence / $4M aggregate
+- Liquor Liability: $2M per occurrence / $4M aggregate  
+- Property: $8.5M building / $2.1M contents / $2M business income
+- Workers Compensation: Statutory limits
+- Commercial Umbrella: $5M
+
+LOSS HISTORY:
+The insured maintains a favorable loss history with 4 claims over the past 5 years totaling $74,400. All claims are closed with no outstanding reserves. The loss ratio has been consistently below industry benchmarks.
+
+RISK QUALITY:
+- All locations equipped with fire suppression systems
+- Active safety program with quarterly training
+- Strong management team with deep industry experience
+- Modern POS and inventory management systems
+- Excellent financial stability (attached statements)
+
+We believe this represents a high-quality risk with strong profitability potential for the right carrier. Please contact me with any questions or to discuss terms.
+
+Best regards,
+SubmissionAI Platform`;
