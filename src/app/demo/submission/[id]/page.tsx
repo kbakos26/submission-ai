@@ -43,10 +43,11 @@ function SubmissionFlowContent() {
   const submission = dashboardSubmissions.find(s => s.id === submissionId);
 
   useEffect(() => {
-    if (currentStepKey === 'upload' && documents.length === 0) {
+    // Always load documents if missing (for any step)
+    if (documents.length === 0) {
       setTimeout(() => {
         setDocuments(uploadedDocuments);
-      }, 500);
+      }, currentStepKey === 'upload' ? 500 : 100);
     }
     if (currentStepKey === 'extraction' && extractedData.length === 0 && documents.length > 0) {
       setIsProcessing(true);
