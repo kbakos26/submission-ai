@@ -1,8 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import { DemoStep } from '@/types';
+import { Suspense } from 'react';
 
 const steps: { id: DemoStep; label: string; icon: string }[] = [
   { id: 'intake', label: 'Client Intake', icon: '📋' },
@@ -12,12 +13,12 @@ const steps: { id: DemoStep; label: string; icon: string }[] = [
   { id: 'roi', label: 'ROI Dashboard', icon: '💰' },
 ];
 
-export default function Sidebar() {
+function SidebarContent() {
   const searchParams = useSearchParams();
   const currentStep = (searchParams.get('step') as DemoStep) || 'intake';
 
   return (
-    <aside className="w-64 bg-[var(--bg-secondary)] border-r border-[var(--border)] h-full flex flex-col">
+    <>
       {/* Header */}
       <div className="p-6 border-b border-[var(--border)]">
         <Link href="/" className="block">
@@ -72,6 +73,20 @@ export default function Sidebar() {
         <p>Synthetic data demo</p>
         <p className="mt-1 opacity-60">No real API calls</p>
       </div>
+    </>
+  );
+}
+
+export default function Sidebar() {
+  return (
+    <aside className="w-64 bg-[var(--bg-secondary)] border-r border-[var(--border)] h-full flex flex-col">
+      <Suspense fallback={
+        <div className="p-6">
+          <div className="text-sm text-[var(--text-muted)]">Loading...</div>
+        </div>
+      }>
+        <SidebarContent />
+      </Suspense>
     </aside>
   );
 }
