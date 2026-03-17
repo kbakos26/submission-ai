@@ -356,3 +356,168 @@ We believe this represents a high-quality risk with strong profitability potenti
 
 Best regards,
 SubmissionAI Platform`;
+
+// Enhanced cover letter
+export const enhancedCoverLetter = `Dear Underwriter,
+
+We are pleased to submit the following new business application on behalf of Pacific Coast Dining Group, Inc., a well-established restaurant chain operating 8 full-service locations across Southern California.
+
+RISK PROFILE:
+The insured has been in continuous operation for 14 years with annual revenues of $12,000,000 and employs 180 staff across all locations. Each location offers full-service dining, takeout, catering services, and private event hosting. All locations serve alcohol under proper liquor licenses with trained staff and established service protocols.
+
+The operation demonstrates strong risk management fundamentals:
+• All locations equipped with commercial-grade fire suppression systems (inspected annually)
+• Active employee safety training program with quarterly sessions
+• Modern POS and inventory management systems
+• Robust hiring and screening processes
+• Strong management team with 50+ combined years in hospitality
+
+LOSS HISTORY:
+Pacific Coast Dining Group maintains a favorable loss history with only 4 claims over the past 5 years totaling $74,400. All claims are closed with no outstanding reserves. The loss ratio has consistently remained below industry benchmarks for full-service restaurants. The most significant loss was a contained kitchen fire in 2023 ($34,200) which resulted in equipment upgrades and enhanced fire prevention protocols.
+
+COVERAGE REQUESTED:
+• General Liability: $2,000,000 per occurrence / $4,000,000 aggregate
+• Liquor Liability: $2,000,000 per occurrence / $4,000,000 aggregate  
+• Property: $8,500,000 building / $2,100,000 contents / $2,000,000 business income
+• Workers Compensation: Statutory limits (CA)
+• Commercial Umbrella: $5,000,000
+
+FINANCIAL STRENGTH:
+The insured maintains excellent financial stability with positive cash flow, strong profitability margins, and conservative debt ratios. Most recent financial statements are attached and demonstrate consistent year-over-year growth.
+
+We believe Pacific Coast Dining Group represents a high-quality hospitality risk with strong profitability potential for the right carrier. The combination of established operations, solid management, favorable loss history, and comprehensive risk controls makes this an attractive submission.
+
+Please contact me with any questions or to discuss terms. We appreciate your consideration and look forward to your quote.
+
+Best regards,
+Sarah Chen, CPCU
+Commercial Lines Broker
+Summit Ridge Insurance Group`;
+
+// ACORD form scanning progress
+export const documentScanProgress = [
+  { doc: 'Dec_Pages_Current.pdf', status: 'Analyzing declarations page...', delay: 800 },
+  { doc: 'Loss_Runs_2022-2025.pdf', status: 'Extracting loss history data...', delay: 1200 },
+  { doc: 'Financial_Statements_2024.pdf', status: 'Processing financial information...', delay: 900 },
+  { doc: 'Property_Schedule.xlsx', status: 'Reading property details...', delay: 700 },
+];
+
+// Detailed ACORD form data
+export const acordFormData = {
+  acord125: {
+    agency: {
+      name: 'Summit Ridge Insurance Group',
+      address: '1500 Commerce Drive, Suite 200',
+      city: 'Newport Beach',
+      state: 'CA',
+      zip: '92660',
+      phone: '(949) 555-0123',
+      fax: '(949) 555-0124',
+      producerCode: 'SRIG-2024',
+    },
+    namedInsured: {
+      name: 'Pacific Coast Dining Group, Inc.',
+      dba: 'Pacific Coast Dining',
+      mailingAddress: '4200 Harbor Boulevard, Suite 300',
+      city: 'Costa Mesa',
+      state: 'CA',
+      zip: '92626',
+      phone: '(714) 555-0189',
+      fein: '94-1234567',
+      entityType: 'Corporation',
+      website: 'www.pacificcoastdining.com',
+    },
+    businessInfo: {
+      naicsCode: '722511',
+      naicsDescription: 'Full-Service Restaurants',
+      yearsInBusiness: 14,
+      yearsWithCurrentAgent: 3,
+      totalAnnualRevenue: 12000000,
+      totalEmployees: 180,
+      totalLocations: 8,
+      descriptionOfOperations: 'Full-service restaurant chain operating 8 locations across Southern California. Offers dine-in, takeout, catering, and private event services. Serves alcohol at all locations. Average seating capacity of 120 per location. Annual catering revenue approximately $1.8M. All locations equipped with commercial-grade fire suppression systems.',
+    },
+    linesRequested: [
+      { line: 'General Liability', checked: true },
+      { line: 'Property', checked: true },
+      { line: 'Liquor Liability', checked: true },
+      { line: 'Workers Compensation', checked: true },
+      { line: 'Commercial Umbrella', checked: true },
+      { line: 'Commercial Auto', checked: false },
+      { line: 'Crime', checked: false },
+      { line: 'Cyber Liability', checked: false },
+    ],
+    priorCarrier: {
+      name: 'Nationwide Commercial',
+      policyNumber: 'NW-CGL-2024-88412',
+      expirationDate: '2025-06-15',
+      totalPremium: 52400,
+      yearsWithCarrier: 3,
+      reasonForChange: 'Shopping for better terms and pricing',
+    },
+    lossHistory: [
+      { year: 2024, claimType: 'GL - Slip & Fall', dateOfLoss: '2024-02-15', amountPaid: 18500, amountReserve: 0, status: 'Closed', description: 'Customer slip and fall in restroom. Settled.' },
+      { year: 2023, claimType: 'Property - Kitchen Fire', dateOfLoss: '2023-08-22', amountPaid: 34200, amountReserve: 0, status: 'Closed', description: 'Grease fire at Costa Mesa location. Equipment damage and 3-day closure.' },
+      { year: 2023, claimType: 'WC - Back Injury', dateOfLoss: '2023-11-10', amountPaid: 12800, amountReserve: 0, status: 'Closed', description: 'Line cook back injury from lifting. Full recovery.' },
+      { year: 2022, claimType: 'GL - Food Illness', dateOfLoss: '2022-05-30', amountPaid: 8900, amountReserve: 0, status: 'Closed', description: 'Alleged food poisoning claim. Settled for nuisance value.' },
+    ],
+  },
+  acord126: {
+    classification: {
+      code: '40133',
+      description: 'Restaurants - Full Service',
+      grossReceipts: 12000000,
+      liquorReceipts: 2400000,
+    },
+    limitsRequested: {
+      eachOccurrence: 2000000,
+      damageToRentedPremises: 300000,
+      medicalExpense: 10000,
+      personalAdvertisingInjury: 2000000,
+      generalAggregate: 4000000,
+      productsCompletedOpsAggregate: 4000000,
+    },
+    liquorLiability: {
+      included: true,
+      eachOccurrence: 2000000,
+      aggregate: 4000000,
+      liquorSalesPercentage: 20,
+    },
+    additionalCoverages: [
+      'Liquor Liability',
+      'Host Liquor Liability',
+      'Products Liability - Food Service',
+      'Waiver of Subrogation (where required by contract)',
+      'Additional Insured - Landlords',
+    ],
+  },
+  acord140: {
+    locations: [
+      { address: '4200 Harbor Blvd, Costa Mesa, CA', buildingValue: 1200000, contentsValue: 280000, biLimit: 250000, construction: 'Masonry', protectionClass: 4, sprinklered: true },
+      { address: '8850 Warner Ave, Fountain Valley, CA', buildingValue: 980000, contentsValue: 240000, biLimit: 220000, construction: 'Masonry', protectionClass: 3, sprinklered: true },
+      { address: '1550 Main St, Huntington Beach, CA', buildingValue: 1450000, contentsValue: 310000, biLimit: 280000, construction: 'Masonry', protectionClass: 3, sprinklered: true },
+      { address: '2200 Newport Blvd, Newport Beach, CA', buildingValue: 1680000, contentsValue: 350000, biLimit: 320000, construction: 'Masonry', protectionClass: 2, sprinklered: true },
+      { address: '5600 Pacific Coast Hwy, Long Beach, CA', buildingValue: 1100000, contentsValue: 260000, biLimit: 240000, construction: 'Frame', protectionClass: 4, sprinklered: true },
+      { address: '3300 Bristol St, Costa Mesa, CA', buildingValue: 890000, contentsValue: 220000, biLimit: 200000, construction: 'Frame', protectionClass: 5, sprinklered: true },
+      { address: '7200 Edinger Ave, Huntington Beach, CA', buildingValue: 920000, contentsValue: 230000, biLimit: 210000, construction: 'Frame', protectionClass: 4, sprinklered: true },
+      { address: '4500 MacArthur Blvd, Newport Beach, CA', buildingValue: 1280000, contentsValue: 310000, biLimit: 280000, construction: 'Masonry', protectionClass: 3, sprinklered: true },
+    ],
+    totalBuildingValue: 8500000,
+    totalContentsValue: 2100000,
+    totalBILimit: 2000000,
+    deductible: 5000,
+    valuation: 'Replacement Cost',
+    coinsurance: '90%',
+  },
+  acord130: {
+    state: 'California',
+    classificationCodes: [
+      { code: '9082', description: 'Restaurant - All Employees', payroll: 4200000, rate: 2.85, premium: 11970 },
+      { code: '8742', description: 'Salespersons - Outside', payroll: 180000, rate: 0.68, premium: 122 },
+    ],
+    totalPayroll: 4380000,
+    totalPremium: 12092,
+    emr: 0.92,
+    deductible: 0,
+  },
+};
