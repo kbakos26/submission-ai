@@ -94,6 +94,7 @@ export interface Submission {
 
 export interface ExtractedField {
   category: string;
+  fieldName?: string;
   label: string;
   value: string;
   confidence: number; // 0-100
@@ -104,8 +105,9 @@ export interface UploadedDocument {
   id: string;
   name: string;
   type: string;
-  status: 'uploaded' | 'processing' | 'extracted';
+  status: 'uploaded' | 'processing' | 'extracted' | 'uploading';
   uploadedAt: string;
+  extractedFields?: ExtractedField[];
 }
 
 export interface RequiredDocument {
