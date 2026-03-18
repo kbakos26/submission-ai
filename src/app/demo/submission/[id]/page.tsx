@@ -13,6 +13,7 @@ import {
   acordFormData,
   sampleClient,
 } from '@/lib/synthetic-data';
+import { analyzeDocumentText } from '@/lib/ai-client';
 import { ExtractedField, UploadedDocument, RequiredDocument } from '@/types';
 
 const steps = [
@@ -326,7 +327,7 @@ function DocumentUploadStep({
     setUploadedFiles((prev: ParsedFile[]) => [...prev, ...newFiles]);
   };
 
-  const handleProcessAll = async () => {
+    const handleProcessAll = async () => {
     if (uploadedFiles.length === 0) return;
 
     setIsParsingAll(true);
@@ -336,27 +337,40 @@ function DocumentUploadStep({
     for (let i = 0; i < uploadedFiles.length; i++) {
       const fileData = uploadedFiles[i];
       
-      // Update status to parsing
-      setUploadedFiles((prev: ParsedFile[]) => 
-        prev.map((f, idx) => idx === i ? { ...f, status: 'parsing' as const } : f)
-      );
-
       try {
+        // Step 1: Upload and extract text (fast, <2s)
+        setUploadedFiles((prev: ParsedFile[]) => 
+          prev.map((f, idx) => idx === i ? { ...f, status: 'parsing' as const } : f)
+        );
+
         const formData = new FormData();
         formData.append('file', fileData.file);
 
-        const response = await fetch('/api/parse-document', {
+        const uploadResponse = await fetch('/api/parse-document', {
           method: 'POST',
           body: formData,
         });
 
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || 'Processing failed');
+        if (!uploadResponse.ok) {
+          const error = await uploadResponse.json();
+          throw new Error(error.error || 'Text extraction failed');
         }
 
-        const result = await response.json();
-        results.push(result);
+        const { text } = await uploadResponse.json();
+
+        if (!text || text.length < 20) {
+          throw new Error('No text extracted from PDF');
+        }
+
+        // Step 2: AI analysis (15-30s, runs in browser)
+        // Update status message to show AI processing
+        setUploadedFiles((prev: ParsedFile[]) => 
+          prev.map((f, idx) => idx === i ? { ...f, status: 'parsing' as const } : f)
+        );
+
+        const aiResult = await analyzeDocumentText(text, fileData.file.name);
+        
+        results.push(aiResult);
 
         // Update status to done
         setUploadedFiles((prev: ParsedFile[]) =>
@@ -365,9 +379,9 @@ function DocumentUploadStep({
               ? {
                   ...f,
                   status: 'done' as const,
-                  documentType: result.documentType,
-                  extractedFields: result.extractedFields,
-                  fieldCount: result.fieldCount,
+                  documentType: aiResult.documentType,
+                  extractedFields: aiResult.extractedFields,
+                  fieldCount: aiResult.fieldCount,
                 }
               : f
           )
@@ -377,10 +391,10 @@ function DocumentUploadStep({
         processedDocs.push({
           id: `doc-${Date.now()}-${i}`,
           name: fileData.file.name,
-          type: result.documentType || 'unknown',
+          type: aiResult.documentType || 'unknown',
           status: 'extracted',
           uploadedAt: new Date().toLocaleString(),
-          extractedFields: result.extractedFields,
+          extractedFields: aiResult.extractedFields,
         });
       } catch (error: any) {
         console.error(`Error processing ${fileData.file.name}:`, error);
