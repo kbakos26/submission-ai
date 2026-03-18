@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import OpenAI from 'openai';
-// @ts-ignore - pdf-parse types may not be perfect
-import * as pdfjsLib from 'pdfjs-dist/legacy/build/pdf';
 
 const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY,
@@ -49,15 +47,18 @@ IMPORTANT:
 - Confidence should reflect OCR quality and field clarity (90-100 = clear, 70-89 = somewhat clear, <70 = unclear/assumed)
 - Always include the source page number and section if identifiable`;
 
-// Simple text extraction from PDF buffer
 async function extractTextFromPDF(buffer: Buffer): Promise<string> {
   try {
-    // For now, we'll just return the buffer as base64 and let GPT-4o handle it
-    // In a production system, you'd use proper PDF parsing
-    return buffer.toString('utf-8', 0, Math.min(50000, buffer.length));
+    // @ts-ignore - Dynamic import to avoid type issues
+    const pdfParseMod = await import('pdf-parse');
+    // @ts-ignore
+    const pdfParse = pdfParseMod.default || pdfParseMod;
+    const pdfData = await pdfParse(buffer);
+    return pdfData.text;
   } catch (error) {
-    console.error('PDF text extraction error:', error);
-    throw new Error('Failed to extract text from PDF');
+    console.error('PDF parsing error:', error);
+    // Fallback: return a portion of the buffer as UTF-8
+    return buffer.toString('utf-8', 0, Math.min(50000, buffer.length));
   }
 }
 
@@ -77,17 +78,19 @@ export async function POST(request: NextRequest) {
     const bytes = await file.arrayBuffer();
     const buffer = Buffer.from(bytes);
 
-    // Try to extract text
+    // Extract text from PDF
     let extractedText = '';
     try {
       extractedText = await extractTextFromPDF(buffer);
     } catch (pdfError) {
       console.error('PDF parsing error:', pdfError);
-      // If text extraction fails, we'll send the raw content
-      extractedText = `[PDF file: ${file.name}]\nSize: ${buffer.length} bytes\nUnable to extract text. This appears to be an image-based PDF.`;
+      return NextResponse.json(
+        { error: 'Failed to parse PDF file. Please ensure it contains readable text.' },
+        { status: 400 }
+      );
     }
 
-    if (extractedText.trim().length < 20) {
+    if (!extractedText || extractedText.trim().length < 20) {
       return NextResponse.json(
         { error: 'PDF appears to be empty or image-based. Text extraction requires text-based PDFs.' },
         { status: 400 }
