@@ -44,12 +44,6 @@ function SubmissionFlowContent() {
   const submission = dashboardSubmissions.find(s => s.id === submissionId);
 
   useEffect(() => {
-    // Always load documents if missing (for any step)
-    if (documents.length === 0) {
-      setTimeout(() => {
-        setDocuments(uploadedDocuments);
-      }, currentStepKey === 'upload' ? 500 : 100);
-    }
     if (currentStepKey === 'extraction' && extractedData.length === 0 && documents.length > 0) {
       setIsProcessing(true);
       setScanningComplete([]);
