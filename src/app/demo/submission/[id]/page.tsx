@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState, useEffect } from 'react';
+import { Suspense, useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import {
   dashboardSubmissions,
@@ -219,9 +219,71 @@ function SubmissionFlowContent() {
 }
 
 function DocumentUploadStep({ documents, setDocuments, showToast }: any) {
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploading, setUploading] = useState<string[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const handleLoadSample = () => {
     setDocuments(uploadedDocuments);
     showToast('Sample documents loaded');
+  };
+
+  const handleFiles = async (files: FileList) => {
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
+      if (file.type !== 'application/pdf') {
+        showToast('Please upload PDF files only');
+        continue;
+      }
+      
+      setUploading(prev => [...prev, file.name]);
+      
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        
+        const response = await fetch('/api/parse-document', {
+          method: 'POST',
+          body: formData,
+        });
+        
+        if (!response.ok) throw new Error('Parse failed');
+        
+        const result = await response.json();
+        
+        const newDoc: UploadedDocument = {
+          id: `upload-${Date.now()}-${i}`,
+          name: file.name,
+          type: result.documentType || 'Unknown',
+          uploadedAt: new Date().toLocaleString(),
+          status: 'extracted' as const,
+        };
+        
+        setDocuments((prev: UploadedDocument[]) => [...prev, newDoc]);
+        showToast(`${file.name} parsed — ${result.extractedFields?.length || 0} fields extracted`);
+      } catch (err) {
+        showToast(`Error parsing ${file.name}`);
+      } finally {
+        setUploading(prev => prev.filter(n => n !== file.name));
+      }
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    if (e.dataTransfer.files.length > 0) {
+      handleFiles(e.dataTransfer.files);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
   };
 
   return (
@@ -230,34 +292,70 @@ function DocumentUploadStep({ documents, setDocuments, showToast }: any) {
         <h2 className="text-2xl font-bold mb-2 text-[var(--text-primary)]">Upload Documents</h2>
         <p className="text-[var(--text-muted)] mb-6">Upload client documents for AI analysis (Dec Pages, Loss Runs, Financial Statements, Property Schedules)</p>
 
-        {documents.length === 0 ? (
-          <div className="border-2 border-dashed border-[var(--border)] rounded-lg p-12 text-center bg-[var(--bg-primary)]">
-            <div className="text-5xl mb-4">📁</div>
-            <p className="text-[var(--text-muted)] mb-6">Drag and drop files here, or click to browse</p>
-            <button
-              onClick={handleLoadSample}
-              className="px-6 py-3 bg-[var(--accent)] text-white rounded-lg font-medium hover:bg-[var(--accent-light)] transition-all shadow-md"
-            >
-              Load Sample Documents
-            </button>
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {documents.map((doc: UploadedDocument) => (
-              <div key={doc.id} className="flex items-center justify-between p-4 bg-[var(--bg-primary)] rounded-lg border border-[var(--border)]">
-                <div className="flex items-center gap-3">
-                  <div className="text-2xl">📄</div>
-                  <div>
-                    <div className="font-medium text-[var(--text-primary)]">{doc.name}</div>
-                    <div className="text-sm text-[var(--text-muted)]">{doc.type} • {doc.uploadedAt}</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  {doc.status === 'extracted' && <span className="text-xs bg-[var(--success)]/10 text-[var(--success)] px-3 py-1 rounded-full font-medium">Extracted</span>}
-                  <button className="text-[var(--text-muted)] hover:text-[var(--danger)]">×</button>
-                </div>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept=".pdf"
+          multiple
+          className="hidden"
+          onChange={(e) => e.target.files && handleFiles(e.target.files)}
+        />
+
+        <div
+          onDrop={handleDrop}
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onClick={() => documents.length === 0 && fileInputRef.current?.click()}
+          className={`border-2 border-dashed rounded-lg p-12 text-center transition-all cursor-pointer ${
+            isDragging
+              ? 'border-[var(--accent)] bg-[var(--accent-glow)]'
+              : 'border-[var(--border)] bg-[var(--bg-primary)] hover:border-[var(--accent)]'
+          }`}
+        >
+          {uploading.length > 0 ? (
+            <div>
+              <div className="text-5xl mb-4 animate-pulse">⚙️</div>
+              <p className="text-[var(--text-primary)] font-medium mb-2">AI is analyzing your documents...</p>
+              {uploading.map(name => (
+                <p key={name} className="text-sm text-[var(--text-muted)]">Processing: {name}</p>
+              ))}
+            </div>
+          ) : documents.length === 0 ? (
+            <div>
+              <div className="text-5xl mb-4">📁</div>
+              <p className="text-[var(--text-primary)] font-medium mb-2">Drag and drop PDF files here</p>
+              <p className="text-[var(--text-muted)] mb-6">or click to browse your computer</p>
+              <div className="flex gap-3 justify-center">
+                <button
+                  onClick={(e) => { e.stopPropagation(); fileInputRef.current?.click(); }}
+                  className="px-6 py-3 bg-[var(--accent)] text-white rounded-lg font-medium hover:bg-[var(--accent-light)] transition-all shadow-md"
+                >
+                  Upload Files
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); handleLoadSample(); }}
+                  className="px-6 py-3 border border-[var(--border)] text-[var(--text-secondary)] rounded-lg font-medium hover:bg-[var(--bg-card-hover)] transition-all"
+                >
+                  Load Sample Data
+                </button>
               </div>
-            ))}
+            </div>
+          ) : (
+            <div>
+              <div className="text-5xl mb-4">➕</div>
+              <p className="text-[var(--text-muted)]">Drop more files here or click to add</p>
+            </div>
+          )}
+        </div>
+
+        {documents.length > 0 && (
+          <div className="mt-4">
+            <button
+              onClick={() => fileInputRef.current?.click()}
+              className="px-4 py-2 text-sm border border-[var(--border)] text-[var(--text-secondary)] rounded-lg hover:bg-[var(--bg-card-hover)] transition-all"
+            >
+              + Add More Files
+            </button>
           </div>
         )}
       </div>
