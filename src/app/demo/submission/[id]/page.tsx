@@ -1,7 +1,7 @@
 'use client';
 
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { Suspense, useState, useEffect } from 'react';
+import React, { Suspense, useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   dashboardSubmissions,
@@ -1511,16 +1511,43 @@ function Acord130Form({ data }: any) {
   );
 }
 
+class ErrorBoundary extends React.Component<{children: React.ReactNode}, {hasError: boolean, error: string}> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: '' };
+  }
+  static getDerivedStateFromError(error: Error) {
+    return { hasError: true, error: error.message + '\n' + error.stack };
+  }
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{padding:'40px',fontFamily:'monospace',background:'#fff',minHeight:'100vh'}}>
+          <h2 style={{color:'red'}}>Error Details (for debugging):</h2>
+          <pre style={{whiteSpace:'pre-wrap',color:'#333'}}>{this.state.error}</pre>
+          <button onClick={() => { sessionStorage.removeItem('submission-ai-state'); window.location.href = '/demo'; }}
+            style={{marginTop:'20px',padding:'10px 20px',background:'#2563eb',color:'#fff',border:'none',borderRadius:'8px',cursor:'pointer'}}>
+            Reset & Go Back
+          </button>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function SubmissionFlowPage() {
   return (
-    <Suspense
-      fallback={
-        <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
-          <div className="text-xl">Loading...</div>
-        </div>
-      }
-    >
-      <SubmissionFlowContent />
-    </Suspense>
+    <ErrorBoundary>
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center">
+            <div className="text-xl">Loading...</div>
+          </div>
+        }
+      >
+        <SubmissionFlowContent />
+      </Suspense>
+    </ErrorBoundary>
   );
 }
