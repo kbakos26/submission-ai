@@ -53,6 +53,33 @@ function SubmissionFlowContent() {
   const [formsApproved, setFormsApproved] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [coverLetter, setCoverLetter] = useState<string>('');
+
+  // Persist critical state to sessionStorage so it survives step navigation and refresh
+  useEffect(() => {
+    const saved = sessionStorage.getItem('submission-ai-state');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        if (parsed.extractedData?.length > 0) setExtractedData(parsed.extractedData);
+        if (parsed.parsedResults?.length > 0) setParsedResults(parsed.parsedResults);
+        if (parsed.isRealUpload) setIsRealUpload(true);
+        if (parsed.documents?.length > 0) setDocuments(parsed.documents);
+        if (parsed.coverLetter) setCoverLetter(parsed.coverLetter);
+      } catch (e) {}
+    }
+  }, []);
+
+  useEffect(() => {
+    if (extractedData.length > 0 || parsedResults.length > 0 || documents.length > 0) {
+      sessionStorage.setItem('submission-ai-state', JSON.stringify({
+        extractedData,
+        parsedResults,
+        isRealUpload,
+        documents,
+        coverLetter,
+      }));
+    }
+  }, [extractedData, parsedResults, isRealUpload, documents, coverLetter]);
   const [acordData, setAcordData] = useState<any>(null);
 
   const submission = dashboardSubmissions.find(s => s.id === submissionId);
