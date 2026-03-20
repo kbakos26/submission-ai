@@ -14,6 +14,8 @@ import {
   sampleClient,
 } from '@/lib/synthetic-data';
 import { analyzeDocumentText } from '@/lib/ai-client';
+import { generateAcord125PDF, generateAcord126PDF, generateAcord130PDF, generateAcord140PDF, generateAllAcordPDFs } from '@/lib/acord-pdf';
+import { generateAcordXML } from '@/lib/acord-xml';
 import { ExtractedField, UploadedDocument, RequiredDocument } from '@/types';
 
 const steps = [
@@ -911,17 +913,37 @@ function AcordFormsStep({
                 {isRealUpload ? 'Generated from your extracted data' : 'Demo forms'}
               </p>
             </div>
-            <button
-              onClick={handleApproveAll}
-              disabled={formsApproved}
-              className={`px-6 py-3 rounded-lg font-semibold transition-all ${
-                formsApproved
-                  ? 'bg-[var(--success)]/10 text-[var(--success)] cursor-not-allowed'
-                  : 'bg-[var(--accent)] text-white hover:bg-[var(--accent-light)] shadow-md'
-              }`}
-            >
-              {formsApproved ? '✓ Approved' : 'Approve All Forms'}
-            </button>
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  generateAllAcordPDFs(formData);
+                  showToast('Downloading all ACORD PDFs...');
+                }}
+                className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
+              >
+                📦 Download All PDFs
+              </button>
+              <button
+                onClick={() => {
+                  generateAcordXML(formData);
+                  showToast('Downloading ACORD XML...');
+                }}
+                className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
+              >
+                📋 Export ACORD XML
+              </button>
+              <button
+                onClick={handleApproveAll}
+                disabled={formsApproved}
+                className={`px-6 py-3 rounded-lg font-semibold transition-all ${
+                  formsApproved
+                    ? 'bg-[var(--success)]/10 text-[var(--success)] cursor-not-allowed'
+                    : 'bg-[var(--accent)] text-white hover:bg-[var(--accent-light)] shadow-md'
+                }`}
+              >
+                {formsApproved ? '✓ Approved' : 'Approve All Forms'}
+              </button>
+            </div>
           </div>
         </div>
 
@@ -947,10 +969,106 @@ function AcordFormsStep({
         </div>
 
         <div className="p-6 bg-white">
-          {activeTab === 'acord125' && <Acord125Form data={formData.acord125} />}
-          {activeTab === 'acord126' && <Acord126Form data={formData.acord126} />}
-          {activeTab === 'acord140' && <Acord140Form data={formData.acord140} />}
-          {activeTab === 'acord130' && <Acord130Form data={formData.acord130} />}
+          {activeTab === 'acord125' && (
+            <>
+              <div className="flex gap-3 mb-6 pb-4 border-b border-[var(--border)]">
+                <button
+                  onClick={() => {
+                    generateAcord125PDF(formData.acord125);
+                    showToast('Downloading ACORD 125 PDF...');
+                  }}
+                  className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
+                >
+                  📄 Download PDF
+                </button>
+                <button
+                  onClick={() => {
+                    generateAcordXML(formData);
+                    showToast('Downloading ACORD XML...');
+                  }}
+                  className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
+                >
+                  📋 Download XML
+                </button>
+              </div>
+              <Acord125Form data={formData.acord125} />
+            </>
+          )}
+          {activeTab === 'acord126' && (
+            <>
+              <div className="flex gap-3 mb-6 pb-4 border-b border-[var(--border)]">
+                <button
+                  onClick={() => {
+                    generateAcord126PDF(formData.acord126);
+                    showToast('Downloading ACORD 126 PDF...');
+                  }}
+                  className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
+                >
+                  📄 Download PDF
+                </button>
+                <button
+                  onClick={() => {
+                    generateAcordXML(formData);
+                    showToast('Downloading ACORD XML...');
+                  }}
+                  className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
+                >
+                  📋 Download XML
+                </button>
+              </div>
+              <Acord126Form data={formData.acord126} />
+            </>
+          )}
+          {activeTab === 'acord140' && (
+            <>
+              <div className="flex gap-3 mb-6 pb-4 border-b border-[var(--border)]">
+                <button
+                  onClick={() => {
+                    generateAcord140PDF(formData.acord140);
+                    showToast('Downloading ACORD 140 PDF...');
+                  }}
+                  className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
+                >
+                  📄 Download PDF
+                </button>
+                <button
+                  onClick={() => {
+                    generateAcordXML(formData);
+                    showToast('Downloading ACORD XML...');
+                  }}
+                  className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
+                >
+                  📋 Download XML
+                </button>
+              </div>
+              <Acord140Form data={formData.acord140} />
+            </>
+          )}
+          {activeTab === 'acord130' && (
+            <>
+              <div className="flex gap-3 mb-6 pb-4 border-b border-[var(--border)]">
+                <button
+                  onClick={() => {
+                    generateAcord130PDF(formData.acord130);
+                    showToast('Downloading ACORD 130 PDF...');
+                  }}
+                  className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
+                >
+                  📄 Download PDF
+                </button>
+                <button
+                  onClick={() => {
+                    generateAcordXML(formData);
+                    showToast('Downloading ACORD XML...');
+                  }}
+                  className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
+                >
+                  📋 Download XML
+                </button>
+              </div>
+              <Acord130Form data={formData.acord130} />
+            </>
+          )}
         </div>
       </div>
     </div>
