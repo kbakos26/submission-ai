@@ -60,7 +60,11 @@ function SubmissionFlowContent() {
       const saved = sessionStorage.getItem('submission-ai-state');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.extractedData?.length > 0) setExtractedData(parsed.extractedData);
+        if (parsed.extractedData?.length > 0) setExtractedData(parsed.extractedData.map((f: any) => ({
+          ...f,
+          value: typeof f.value === 'object' ? JSON.stringify(f.value) : String(f.value ?? ''),
+          label: String(f.label ?? ''),
+        })));
         if (parsed.parsedResults?.length > 0) setParsedResults(parsed.parsedResults);
         if (parsed.isRealUpload) setIsRealUpload(true);
         if (parsed.coverLetter) setCoverLetter(parsed.coverLetter);
@@ -454,11 +458,19 @@ function DocumentUploadStep({
     setIsRealUpload(true);
     setIsParsingAll(false);
 
-    // Merge all extracted fields
+    // Merge all extracted fields and ensure all values are strings
     const allFields: ExtractedField[] = [];
     results.forEach(result => {
       if (result.extractedFields) {
-        allFields.push(...result.extractedFields);
+        result.extractedFields.forEach((field: any) => {
+          allFields.push({
+            ...field,
+            value: typeof field.value === 'object' ? JSON.stringify(field.value) : String(field.value ?? ''),
+            label: String(field.label ?? ''),
+            source: String(field.source ?? ''),
+            category: String(field.category ?? 'Other'),
+          });
+        });
       }
     });
     setExtractedData(allFields);
@@ -692,7 +704,8 @@ function DataExtractionStep({
                   .map((field: ExtractedField) => {
                     const isFlagged = field.confidence < 95;
                     const isEditing = editingField === field.label;
-                    const displayValue = editedValues[field.label] || field.value;
+                    const rawValue = editedValues[field.label] || field.value;
+                    const displayValue = typeof rawValue === "object" ? JSON.stringify(rawValue) : String(rawValue ?? "");
 
                     return (
                       <div
