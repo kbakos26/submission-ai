@@ -62,7 +62,9 @@ function SubmissionFlowContent() {
         const parsed = JSON.parse(saved);
         if (parsed.extractedData?.length > 0) setExtractedData(parsed.extractedData.map((f: any) => ({
           ...f,
-          value: typeof f.value === 'object' ? JSON.stringify(f.value) : String(f.value ?? ''),
+          value: typeof f.value === 'object' && f.value !== null
+          ? Object.entries(f.value).map(([k, v]: [string, any]) => `${k.charAt(0).toUpperCase() + k.slice(1)}: ${v}`).join('  |  ')
+          : String(f.value ?? ''),
           label: String(f.label ?? ''),
         })));
         if (parsed.parsedResults?.length > 0) setParsedResults(parsed.parsedResults);
@@ -465,7 +467,9 @@ function DocumentUploadStep({
         result.extractedFields.forEach((field: any) => {
           allFields.push({
             ...field,
-            value: typeof field.value === 'object' ? JSON.stringify(field.value) : String(field.value ?? ''),
+            value: typeof field.value === 'object' && field.value !== null
+              ? Object.entries(field.value).map(([k, v]) => `${k.charAt(0).toUpperCase() + k.slice(1)}: ${v}`).join('  |  ')
+              : String(field.value ?? ''),
             label: String(field.label ?? ''),
             source: String(field.source ?? ''),
             category: String(field.category ?? 'Other'),
@@ -705,7 +709,7 @@ function DataExtractionStep({
                     const isFlagged = field.confidence < 95;
                     const isEditing = editingField === field.label;
                     const rawValue = editedValues[field.label] || field.value;
-                    const displayValue = typeof rawValue === "object" ? JSON.stringify(rawValue) : String(rawValue ?? "");
+                    const displayValue = typeof rawValue === "object" && rawValue !== null ? Object.entries(rawValue).map(([k, v]) => `${(k as string).charAt(0).toUpperCase() + (k as string).slice(1)}: ${v}`).join("  |  ") : String(rawValue ?? "");
 
                     return (
                       <div
