@@ -127,6 +127,15 @@ function SubmissionFlowContent() {
     if (!completedSteps.includes(currentStep)) {
       setCompletedSteps([...completedSteps, currentStep]);
     }
+    // Save state synchronously before navigating
+    try {
+      sessionStorage.setItem('submission-ai-state', JSON.stringify({
+        extractedData,
+        parsedResults: parsedResults.map((r: any) => ({ documentType: r.documentType, documentLabel: r.documentLabel, extractedFields: r.extractedFields, fieldCount: r.fieldCount })),
+        isRealUpload,
+        coverLetter,
+      }));
+    } catch (e) {}
     const nextIndex = currentStep;
     if (nextIndex < steps.length) {
       goToStep(steps[nextIndex].key);
