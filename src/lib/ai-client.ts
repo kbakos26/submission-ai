@@ -56,135 +56,145 @@ export async function analyzeDocumentText(text: string, fileName: string) {
     documentLabel: result.documentLabel || fileName,
     extractedFields: (result.extractedFields || []).map((f: any) => ({
       ...f,
-      value: typeof f.value === 'object' ? JSON.stringify(f.value) : String(f.value ?? ''),
+      value: typeof f.value === 'object' ? Object.entries(f.value).map(([k, v]) => `${k}: ${v}`).join(' | ') : String(f.value ?? ''),
     })),
     fieldCount: result.extractedFields?.length || 0,
   };
 }
 
 export async function generateAcordForms(extractedFields: any[]) {
-  // Build a flat map of field values for the AI to reference
   const fieldMap: Record<string, string> = {};
   extractedFields.forEach(f => {
     fieldMap[f.label || f.fieldName || ''] = String(f.value ?? '');
   });
 
-  const prompt = `You are an expert at populating ACORD insurance forms from extracted field data.
+  const prompt = `You are an expert at populating ACORD insurance forms. Given extracted insurance data, populate the forms.
 
-Given the extracted fields below, populate the ACORD forms. Return JSON matching this EXACT structure:
+CRITICAL: All dollar amounts and numeric values MUST be plain numbers (not strings). Examples:
+- totalAnnualRevenue: 5000000 (NOT "$5,000,000")
+- eachOccurrence: 2000000 (NOT "$2,000,000")  
+- buildingValue: 1500000 (NOT "$1.5M")
+- grossReceipts: 12000000 (NOT "$12M")
+- totalPremium: 59600 (NOT "$59,600")
+- liquorSalesPercentage: 35 (NOT "35%")
+
+Strings are ONLY for: names, addresses, descriptions, dates, codes, entity types.
+
+Return JSON matching this EXACT structure:
 
 {
   "acord125": {
     "agency": {
-      "name": "agency name",
-      "address": "street address",
-      "city": "city",
+      "name": "string",
+      "address": "string",
+      "city": "string",
       "state": "ST",
-      "zip": "12345",
-      "phone": "(555) 555-0000",
-      "producerCode": "code"
+      "zip": "string",
+      "phone": "string",
+      "producerCode": "string"
     },
     "namedInsured": {
-      "name": "business legal name",
-      "dba": "doing business as",
-      "mailingAddress": "street address",
-      "city": "city",
+      "name": "string",
+      "dba": "string",
+      "mailingAddress": "string",
+      "city": "string",
       "state": "ST",
-      "zip": "12345",
-      "phone": "(555) 555-0000",
-      "fein": "XX-XXXXXXX",
-      "entityType": "LLC/Corp/etc",
+      "zip": "string",
+      "phone": "string",
+      "fein": "string",
+      "entityType": "string",
       "autoFilled": true
     },
     "businessInfo": {
-      "naicsCode": "code",
-      "naicsDescription": "description",
-      "yearsInBusiness": 10,
-      "totalLocations": 3,
-      "totalEmployees": 50,
-      "totalAnnualRevenue": 5000000,
-      "descriptionOfOperations": "what they do",
+      "naicsCode": "string",
+      "naicsDescription": "string",
+      "yearsInBusiness": NUMBER,
+      "totalLocations": NUMBER,
+      "totalEmployees": NUMBER,
+      "totalAnnualRevenue": NUMBER,
+      "descriptionOfOperations": "string",
       "autoFilled": true
     },
     "priorCarrier": {
-      "name": "carrier name",
-      "policyNumber": "number",
-      "expirationDate": "date",
-      "totalPremium": 50000,
-      "yearsWithCarrier": 3,
-      "reasonForChange": "reason",
+      "name": "string",
+      "policyNumber": "string",
+      "expirationDate": "string",
+      "totalPremium": NUMBER,
+      "yearsWithCarrier": NUMBER,
+      "reasonForChange": "string",
       "autoFilled": true
     },
     "linesRequested": [
-      {"line": "Commercial General Liability", "currentPremium": 18000, "requested": true},
-      {"line": "Commercial Property", "currentPremium": 12000, "requested": true}
+      {"line": "Coverage Name", "currentPremium": NUMBER, "requested": true}
     ],
     "lossHistory": [
-      {"year": 2024, "line": "GL", "claims": 1, "totalIncurred": 15000, "description": "slip and fall"}
+      {"year": NUMBER, "line": "string", "claims": NUMBER, "totalIncurred": NUMBER, "description": "string"}
     ]
   },
   "acord126": {
     "classification": {
-      "code": "SIC/NAICS code",
-      "description": "classification description",
-      "grossReceipts": 5000000,
-      "liquorReceipts": 1000000
+      "code": "string",
+      "description": "string",
+      "grossReceipts": NUMBER,
+      "liquorReceipts": NUMBER
     },
     "limitsRequested": {
-      "eachOccurrence": "$2,000,000",
-      "generalAggregate": "$4,000,000",
-      "productsCompletedOpsAggregate": "$2,000,000",
-      "personalAdvertisingInjury": "$2,000,000",
-      "damageToRentedPremises": "$300,000",
-      "medicalExpense": "$10,000"
+      "eachOccurrence": NUMBER,
+      "generalAggregate": NUMBER,
+      "productsCompletedOpsAggregate": NUMBER,
+      "personalAdvertisingInjury": NUMBER,
+      "damageToRentedPremises": NUMBER,
+      "medicalExpense": NUMBER
     },
     "liquorLiability": {
-      "included": true,
-      "eachOccurrence": "$1,000,000",
-      "aggregate": "$2,000,000",
-      "liquorSalesPercentage": "35%"
+      "included": BOOLEAN,
+      "eachOccurrence": NUMBER,
+      "aggregate": NUMBER,
+      "liquorSalesPercentage": NUMBER
     },
-    "additionalCoverages": [
-      {"name": "Hired & Non-Owned Auto", "limit": "$1,000,000", "included": true}
-    ]
+    "additionalCoverages": ["Coverage Name 1", "Coverage Name 2"]
   },
   "acord140": {
     "locations": [
       {
-        "number": 1,
-        "address": "full address",
-        "buildingValue": 1500000,
-        "contentsValue": 500000,
-        "biValue": 200000,
-        "constructionType": "Masonry",
-        "yearBuilt": 2005,
-        "sqFootage": 8000,
-        "stories": 1,
-        "sprinklered": true,
-        "protectionClass": "3"
+        "number": NUMBER,
+        "address": "string",
+        "buildingValue": NUMBER,
+        "contentsValue": NUMBER,
+        "biLimit": NUMBER,
+        "construction": "string",
+        "yearBuilt": NUMBER,
+        "sqFootage": NUMBER,
+        "stories": NUMBER,
+        "sprinklered": BOOLEAN,
+        "protectionClass": "string"
       }
     ],
-    "totalBuildingValue": 4000000,
-    "totalContentsValue": 1500000,
-    "totalBILimit": 600000,
-    "valuation": "Replacement Cost",
-    "coinsurance": "80%",
-    "deductible": 2500
+    "totalBuildingValue": NUMBER,
+    "totalContentsValue": NUMBER,
+    "totalBILimit": NUMBER,
+    "valuation": "string",
+    "coinsurance": "string",
+    "deductible": NUMBER
   },
   "acord130": {
-    "state": "OR",
-    "totalPayroll": 3500000,
-    "totalPremium": 45000,
-    "emr": 0.95,
-    "deductible": 1000,
+    "state": "ST",
+    "totalPayroll": NUMBER,
+    "totalPremium": NUMBER,
+    "emr": NUMBER (decimal like 0.95),
+    "deductible": NUMBER,
     "classificationCodes": [
-      {"code": "2003", "description": "Brewing", "payroll": 2000000, "rate": 1.25, "premium": 25000},
-      {"code": "9079", "description": "Restaurant", "payroll": 1500000, "rate": 1.35, "premium": 20000}
+      {"code": "string", "description": "string", "payroll": NUMBER, "rate": NUMBER, "premium": NUMBER}
     ]
   }
 }
 
-Fill in real values from the extracted data. If a value wasn't extracted, make a reasonable inference or leave empty string. Set autoFilled: true on sections populated from extracted data.`;
+IMPORTANT RULES:
+1. ALL dollar values must be plain numbers without $ signs or commas
+2. additionalCoverages must be an array of STRINGS (coverage names), not objects
+3. Location field names: "biLimit" (not biValue), "construction" (not constructionType)
+4. Fill in every field you can from the data. If not available, use 0 for numbers and "" for strings.
+5. Set autoFilled: true on sections populated from real data.`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -196,7 +206,7 @@ Fill in real values from the extracted data. If a value wasn't extracted, make a
       model: 'gpt-4o-mini',
       messages: [
         { role: 'system', content: prompt },
-        { role: 'user', content: `Populate ACORD forms from this extracted data:\n\n${JSON.stringify(fieldMap, null, 2)}` },
+        { role: 'user', content: `Populate ACORD forms from this extracted insurance data:\n\n${JSON.stringify(fieldMap, null, 2)}` },
       ],
       response_format: { type: 'json_object' },
       temperature: 0.1,

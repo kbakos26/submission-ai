@@ -1322,32 +1322,32 @@ function Acord126Form({ data }: any) {
         <div className="grid grid-cols-2 gap-4">
           <FormField
             label="Each Occurrence"
-            value={`$${((data?.limitsRequested?.eachOccurrence || 0) / 1000000).toFixed(1)}M`}
+            value={`$${(Number(data?.limitsRequested?.eachOccurrence || 0) / 1000000).toFixed(1)}M`}
             autoFilled
           />
           <FormField
             label="General Aggregate"
-            value={`$${((data?.limitsRequested?.generalAggregate || 0) / 1000000).toFixed(1)}M`}
+            value={`$${(Number(data?.limitsRequested?.generalAggregate || 0) / 1000000).toFixed(1)}M`}
             autoFilled
           />
           <FormField
             label="Products/Completed Ops Agg"
-            value={`$${((data?.limitsRequested?.productsCompletedOpsAggregate || 0) / 1000000).toFixed(1)}M`}
+            value={`$${(Number(data?.limitsRequested?.productsCompletedOpsAggregate || 0) / 1000000).toFixed(1)}M`}
             autoFilled
           />
           <FormField
             label="Personal & Advertising Injury"
-            value={`$${((data?.limitsRequested?.personalAdvertisingInjury || 0) / 1000000).toFixed(1)}M`}
+            value={`$${(Number(data?.limitsRequested?.personalAdvertisingInjury || 0) / 1000000).toFixed(1)}M`}
             autoFilled
           />
           <FormField
             label="Damage to Rented Premises"
-            value={`$${((data?.limitsRequested?.damageToRentedPremises || 0) / 1000).toFixed(0)}K`}
+            value={`$${(Number(data?.limitsRequested?.damageToRentedPremises || 0) / 1000).toFixed(0)}K`}
             autoFilled
           />
           <FormField
             label="Medical Expense"
-            value={`$${((data?.limitsRequested?.medicalExpense || 0) / 1000).toFixed(0)}K`}
+            value={`$${(Number(data?.limitsRequested?.medicalExpense || 0) / 1000).toFixed(0)}K`}
             autoFilled
           />
         </div>
@@ -1359,12 +1359,12 @@ function Acord126Form({ data }: any) {
           <FormField label="Liquor Sales %" value={`${data?.liquorLiability?.liquorSalesPercentage || 0}%`} autoFilled />
           <FormField
             label="Each Occurrence"
-            value={`$${((data?.liquorLiability?.eachOccurrence || 0) / 1000000).toFixed(1)}M`}
+            value={`$${(Number(data?.liquorLiability?.eachOccurrence || 0) / 1000000).toFixed(1)}M`}
             autoFilled
           />
           <FormField
             label="Aggregate"
-            value={`$${((data?.liquorLiability?.aggregate || 0) / 1000000).toFixed(1)}M`}
+            value={`$${(Number(data?.liquorLiability?.aggregate || 0) / 1000000).toFixed(1)}M`}
             autoFilled
           />
         </div>
@@ -1372,10 +1372,12 @@ function Acord126Form({ data }: any) {
 
       <FormSection title="Additional Coverages">
         <div className="space-y-2">
-          {data?.additionalCoverages?.map((coverage: string, idx: number) => (
+          {data?.additionalCoverages?.map((coverage: any, idx: number) => (
             <div key={idx} className="flex items-center gap-2">
               <span className="text-green-500">✓</span>
-              <span className="text-sm text-[var(--text-secondary)]">{coverage}</span>
+              <span className="text-sm text-[var(--text-secondary)]">
+                {typeof coverage === 'object' ? (coverage.name || JSON.stringify(coverage)) : String(coverage)}
+              </span>
             </div>
           ))}
         </div>
@@ -1422,18 +1424,18 @@ function Acord140Form({ data }: any) {
                   <div>
                     <div className="text-xs text-[var(--text-muted)] mb-1">Building</div>
                     <div className="font-semibold text-[var(--text-primary)]">
-                      ${(loc.buildingValue / 1000).toFixed(0)}K
+                      ${((loc.buildingValue || 0) / 1000).toFixed(0)}K
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-[var(--text-muted)] mb-1">Contents</div>
                     <div className="font-semibold text-[var(--text-primary)]">
-                      ${(loc.contentsValue / 1000).toFixed(0)}K
+                      ${((loc.contentsValue || 0) / 1000).toFixed(0)}K
                     </div>
                   </div>
                   <div>
                     <div className="text-xs text-[var(--text-muted)] mb-1">BI Limit</div>
-                    <div className="font-semibold text-[var(--text-primary)]">${(loc.biLimit / 1000).toFixed(0)}K</div>
+                    <div className="font-semibold text-[var(--text-primary)]">${((loc.biLimit || 0) / 1000).toFixed(0)}K</div>
                   </div>
                   <div>
                     <div className="text-xs text-[var(--text-muted)] mb-1">Construction</div>
