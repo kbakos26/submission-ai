@@ -1,45 +1,30 @@
 const OPENAI_API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY || '';
 
-const SYSTEM_PROMPT = `You are an expert at extracting structured data from commercial insurance documents.
+const EXTRACTION_PROMPT = `You are an expert at extracting structured data from commercial insurance documents.
 
-Your task:
-1. Classify the document type: dec_page, loss_run, financial, property_schedule, vehicle_schedule, payroll, supplemental, or other
-2. Extract ALL relevant fields
-3. Assign a confidence score (0-100) for each field
-4. Identify where each field was found (page/section)
+Classify the document type: dec_page, loss_run, financial, property_schedule, vehicle_schedule, payroll, supplemental, or other
 
-For dec_page: Extract named_insured, dba, policy_number, carrier_name, effective_date, expiration_date, agent_name, agency_name, business_address, city, state, zip, phone, fein, entity_type, naics_code, sic_code, description_of_operations, each coverage line (with limit, deductible, premium), locations, endorsements, total_premium
-
-For loss_run: Extract insured_name, carrier, policy_periods, and each claim (claim_number, date_of_loss, type, description, amount_paid, amount_reserved, total_incurred, status), plus summary totals and loss ratios
-
-For property_schedule: Extract each location (address, building_value, bpp_value, bi_value, construction_type, year_built, sq_footage, stories, sprinklered, alarm, roof_type, protection_class)
-
-For financial: Extract business_name, revenue, payroll, employee_count, net_income
+Extract ALL relevant fields with confidence scores (0-100).
 
 Return valid JSON:
 {
-  "documentType": "dec_page|loss_run|financial|property_schedule|other",
-  "documentLabel": "Human-readable label like Declarations Page - Mountain View Brewing",
+  "documentType": "dec_page|loss_run|property_schedule|other",
+  "documentLabel": "Human-readable label",
   "extractedFields": [
     {
       "category": "Business Info|Coverage|Claims|Property|Financial",
       "fieldName": "named_insured",
       "label": "Named Insured",
-      "value": "The extracted value",
+      "value": "The extracted value AS A STRING - never return objects here",
       "confidence": 98,
-      "source": "Page 1, Named Insured section"
+      "source": "Page 1, section name"
     }
   ]
 }
 
-Extract EVERY field you can find. Be thorough. For coverage tables, extract each line item separately.`;
+IMPORTANT: Every "value" MUST be a plain string. For coverage lines, format as: "$2,000,000 / $4,000,000 limit, $1,000 deductible, $18,400 premium". Never return objects or arrays as values.`;
 
-export async function analyzeDocumentText(text: string, fileName: string): Promise<{
-  documentType: string;
-  documentLabel: string;
-  extractedFields: any[];
-  fieldCount: number;
-}> {
+export async function analyzeDocumentText(text: string, fileName: string) {
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
     headers: {
@@ -49,8 +34,8 @@ export async function analyzeDocumentText(text: string, fileName: string): Promi
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: SYSTEM_PROMPT },
-        { role: 'user', content: `Extract all structured data from this commercial insurance document (${fileName}):\n\n${text}` },
+        { role: 'system', content: EXTRACTION_PROMPT },
+        { role: 'user', content: `Extract all structured data from this insurance document (${fileName}):\n\n${text}` },
       ],
       response_format: { type: 'json_object' },
       temperature: 0.1,
@@ -69,36 +54,137 @@ export async function analyzeDocumentText(text: string, fileName: string): Promi
   return {
     documentType: result.documentType || 'other',
     documentLabel: result.documentLabel || fileName,
-    extractedFields: result.extractedFields || [],
+    extractedFields: (result.extractedFields || []).map((f: any) => ({
+      ...f,
+      value: typeof f.value === 'object' ? JSON.stringify(f.value) : String(f.value ?? ''),
+    })),
     fieldCount: result.extractedFields?.length || 0,
   };
 }
 
-export async function generateAcordForms(extractedFields: any[]): Promise<any> {
-  const ACORD_PROMPT = `You are an expert at populating ACORD insurance forms from extracted data.
+export async function generateAcordForms(extractedFields: any[]) {
+  // Build a flat map of field values for the AI to reference
+  const fieldMap: Record<string, string> = {};
+  extractedFields.forEach(f => {
+    fieldMap[f.label || f.fieldName || ''] = String(f.value ?? '');
+  });
 
-Given extracted field data, create populated ACORD 125, 126, 130, 131, and 140 forms.
+  const prompt = `You are an expert at populating ACORD insurance forms from extracted field data.
 
-Return valid JSON with this structure:
+Given the extracted fields below, populate the ACORD forms. Return JSON matching this EXACT structure:
+
 {
   "acord125": {
-    "formName": "ACORD 125 - Commercial Insurance Application",
-    "sections": [
-      {
-        "name": "Applicant Information",
-        "fields": [
-          {"label": "Named Insured", "value": "...", "source": "extracted field"}
-        ]
-      }
+    "agency": {
+      "name": "agency name",
+      "address": "street address",
+      "city": "city",
+      "state": "ST",
+      "zip": "12345",
+      "phone": "(555) 555-0000",
+      "producerCode": "code"
+    },
+    "namedInsured": {
+      "name": "business legal name",
+      "dba": "doing business as",
+      "mailingAddress": "street address",
+      "city": "city",
+      "state": "ST",
+      "zip": "12345",
+      "phone": "(555) 555-0000",
+      "fein": "XX-XXXXXXX",
+      "entityType": "LLC/Corp/etc",
+      "autoFilled": true
+    },
+    "businessInfo": {
+      "naicsCode": "code",
+      "naicsDescription": "description",
+      "yearsInBusiness": 10,
+      "totalLocations": 3,
+      "totalEmployees": 50,
+      "totalAnnualRevenue": 5000000,
+      "descriptionOfOperations": "what they do",
+      "autoFilled": true
+    },
+    "priorCarrier": {
+      "name": "carrier name",
+      "policyNumber": "number",
+      "expirationDate": "date",
+      "totalPremium": 50000,
+      "yearsWithCarrier": 3,
+      "reasonForChange": "reason",
+      "autoFilled": true
+    },
+    "linesRequested": [
+      {"line": "Commercial General Liability", "currentPremium": 18000, "requested": true},
+      {"line": "Commercial Property", "currentPremium": 12000, "requested": true}
+    ],
+    "lossHistory": [
+      {"year": 2024, "line": "GL", "claims": 1, "totalIncurred": 15000, "description": "slip and fall"}
     ]
   },
-  "acord126": { ... similar structure ... },
-  "acord130": { ... },
-  "acord131": { ... },
-  "acord140": { ... }
+  "acord126": {
+    "classification": {
+      "code": "SIC/NAICS code",
+      "description": "classification description",
+      "grossReceipts": 5000000,
+      "liquorReceipts": 1000000
+    },
+    "limitsRequested": {
+      "eachOccurrence": "$2,000,000",
+      "generalAggregate": "$4,000,000",
+      "productsCompletedOpsAggregate": "$2,000,000",
+      "personalAdvertisingInjury": "$2,000,000",
+      "damageToRentedPremises": "$300,000",
+      "medicalExpense": "$10,000"
+    },
+    "liquorLiability": {
+      "included": true,
+      "eachOccurrence": "$1,000,000",
+      "aggregate": "$2,000,000",
+      "liquorSalesPercentage": "35%"
+    },
+    "additionalCoverages": [
+      {"name": "Hired & Non-Owned Auto", "limit": "$1,000,000", "included": true}
+    ]
+  },
+  "acord140": {
+    "locations": [
+      {
+        "number": 1,
+        "address": "full address",
+        "buildingValue": 1500000,
+        "contentsValue": 500000,
+        "biValue": 200000,
+        "constructionType": "Masonry",
+        "yearBuilt": 2005,
+        "sqFootage": 8000,
+        "stories": 1,
+        "sprinklered": true,
+        "protectionClass": "3"
+      }
+    ],
+    "totalBuildingValue": 4000000,
+    "totalContentsValue": 1500000,
+    "totalBILimit": 600000,
+    "valuation": "Replacement Cost",
+    "coinsurance": "80%",
+    "deductible": 2500
+  },
+  "acord130": {
+    "state": "OR",
+    "totalPayroll": 3500000,
+    "totalPremium": 45000,
+    "emr": 0.95,
+    "deductible": 1000,
+    "classificationCodes": [
+      {"code": "2003", "description": "Brewing", "payroll": 2000000, "rate": 1.25, "premium": 25000},
+      {"code": "9079", "description": "Restaurant", "payroll": 1500000, "rate": 1.35, "premium": 20000}
+    ]
+  }
 }
 
-Map the extracted fields to the appropriate ACORD form fields. Use standard ACORD field names.`;
+Fill in real values from the extracted data. If a value wasn't extracted, make a reasonable inference or leave empty string. Set autoFilled: true on sections populated from extracted data.`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -109,8 +195,8 @@ Map the extracted fields to the appropriate ACORD form fields. Use standard ACOR
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: ACORD_PROMPT },
-        { role: 'user', content: `Generate ACORD forms from this extracted data:\n\n${JSON.stringify(extractedFields, null, 2)}` },
+        { role: 'system', content: prompt },
+        { role: 'user', content: `Populate ACORD forms from this extracted data:\n\n${JSON.stringify(fieldMap, null, 2)}` },
       ],
       response_format: { type: 'json_object' },
       temperature: 0.1,
@@ -127,20 +213,15 @@ Map the extracted fields to the appropriate ACORD form fields. Use standard ACOR
   return JSON.parse(data.choices[0].message.content || '{}');
 }
 
-export async function generateCoverLetter(extractedFields: any[], companyInfo?: any): Promise<string> {
-  const COVER_LETTER_PROMPT = `You are an expert commercial insurance broker writing submission cover letters.
+export async function generateCoverLetter(extractedFields: any[]): Promise<string> {
+  const prompt = `You are an expert commercial insurance broker writing submission cover letters.
 
-Write a professional, concise 3-paragraph cover letter for this commercial insurance submission:
+Write a professional 3-paragraph cover letter for this commercial insurance submission:
+- Paragraph 1: Introduce the insured, their operations, and coverage needs
+- Paragraph 2: Highlight key risk characteristics and positive attributes  
+- Paragraph 3: Summarize coverage needs and request quotes
 
-Paragraph 1: Introduce the insured business, their operations, and why they're seeking coverage
-Paragraph 2: Highlight key risk characteristics and positive attributes
-Paragraph 3: Summarize the coverage needs and request quotes
-
-Use professional insurance broker language. Be specific using the extracted data. Keep it under 300 words.
-
-Return ONLY the cover letter text (no JSON, no markdown formatting).`;
-
-  const dataContext = `Extracted Data:\n${JSON.stringify(extractedFields.slice(0, 50), null, 2)}\n\nCompany Info: ${JSON.stringify(companyInfo || {})}`;
+Use professional insurance broker language. Be specific. Under 300 words. Return ONLY the letter text.`;
 
   const response = await fetch('https://api.openai.com/v1/chat/completions', {
     method: 'POST',
@@ -151,8 +232,8 @@ Return ONLY the cover letter text (no JSON, no markdown formatting).`;
     body: JSON.stringify({
       model: 'gpt-4o-mini',
       messages: [
-        { role: 'system', content: COVER_LETTER_PROMPT },
-        { role: 'user', content: dataContext },
+        { role: 'system', content: prompt },
+        { role: 'user', content: `Write a cover letter using this data:\n\n${JSON.stringify(extractedFields.slice(0, 50), null, 2)}` },
       ],
       temperature: 0.7,
       max_tokens: 800,
