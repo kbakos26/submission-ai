@@ -972,7 +972,7 @@ function SubmissionPackageStep({ showToast, extractedData, isRealUpload, coverLe
       };
 
       import('@/lib/ai-client')
-        .then(({ generateCoverLetter }) => generateCoverLetter(extractedData, companyInfo))
+        .then(({ generateCoverLetter }) => generateCoverLetter(extractedData))
         .then(letter => {
           setCoverLetter(letter);
         })
