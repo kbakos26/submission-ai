@@ -73,3 +73,97 @@ export async function analyzeDocumentText(text: string, fileName: string): Promi
     fieldCount: result.extractedFields?.length || 0,
   };
 }
+
+export async function generateAcordForms(extractedFields: any[]): Promise<any> {
+  const ACORD_PROMPT = `You are an expert at populating ACORD insurance forms from extracted data.
+
+Given extracted field data, create populated ACORD 125, 126, 130, 131, and 140 forms.
+
+Return valid JSON with this structure:
+{
+  "acord125": {
+    "formName": "ACORD 125 - Commercial Insurance Application",
+    "sections": [
+      {
+        "name": "Applicant Information",
+        "fields": [
+          {"label": "Named Insured", "value": "...", "source": "extracted field"}
+        ]
+      }
+    ]
+  },
+  "acord126": { ... similar structure ... },
+  "acord130": { ... },
+  "acord131": { ... },
+  "acord140": { ... }
+}
+
+Map the extracted fields to the appropriate ACORD form fields. Use standard ACORD field names.`;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: ACORD_PROMPT },
+        { role: 'user', content: `Generate ACORD forms from this extracted data:\n\n${JSON.stringify(extractedFields, null, 2)}` },
+      ],
+      response_format: { type: 'json_object' },
+      temperature: 0.1,
+      max_tokens: 4096,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error?.message || 'OpenAI API error');
+  }
+
+  const data = await response.json();
+  return JSON.parse(data.choices[0].message.content || '{}');
+}
+
+export async function generateCoverLetter(extractedFields: any[], companyInfo?: any): Promise<string> {
+  const COVER_LETTER_PROMPT = `You are an expert commercial insurance broker writing submission cover letters.
+
+Write a professional, concise 3-paragraph cover letter for this commercial insurance submission:
+
+Paragraph 1: Introduce the insured business, their operations, and why they're seeking coverage
+Paragraph 2: Highlight key risk characteristics and positive attributes
+Paragraph 3: Summarize the coverage needs and request quotes
+
+Use professional insurance broker language. Be specific using the extracted data. Keep it under 300 words.
+
+Return ONLY the cover letter text (no JSON, no markdown formatting).`;
+
+  const dataContext = `Extracted Data:\n${JSON.stringify(extractedFields.slice(0, 50), null, 2)}\n\nCompany Info: ${JSON.stringify(companyInfo || {})}`;
+
+  const response = await fetch('https://api.openai.com/v1/chat/completions', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${OPENAI_API_KEY}`,
+    },
+    body: JSON.stringify({
+      model: 'gpt-4o-mini',
+      messages: [
+        { role: 'system', content: COVER_LETTER_PROMPT },
+        { role: 'user', content: dataContext },
+      ],
+      temperature: 0.7,
+      max_tokens: 800,
+    }),
+  });
+
+  if (!response.ok) {
+    const err = await response.json();
+    throw new Error(err.error?.message || 'OpenAI API error');
+  }
+
+  const data = await response.json();
+  return data.choices[0].message.content || '';
+}

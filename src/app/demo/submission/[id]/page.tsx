@@ -805,21 +805,13 @@ function AcordFormsStep({
 
   useEffect(() => {
     if (!acordData && !isLoading && isRealUpload && extractedData.length > 0) {
-      // Call API to generate ACORD forms from extracted data
+      // Generate ACORD forms client-side using AI
       setIsLoading(true);
-      fetch('/api/generate-acord', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ extractedFields: extractedData }),
-      })
-        .then(res => res.json())
+      
+      import('@/lib/ai-client')
+        .then(({ generateAcordForms }) => generateAcordForms(extractedData))
         .then(data => {
-          if (data.success) {
-            setAcordData(data.acordForms);
-          } else {
-            showToast('Error generating ACORD forms');
-            setAcordData(acordFormData);
-          }
+          setAcordData(data);
         })
         .catch(err => {
           console.error('ACORD generation error:', err);
@@ -916,27 +908,18 @@ function SubmissionPackageStep({ showToast, extractedData, isRealUpload, coverLe
 
   useEffect(() => {
     if (!coverLetter && !isLoading && isRealUpload && extractedData.length > 0) {
-      // Generate cover letter from extracted data
+      // Generate cover letter client-side using AI
       setIsLoading(true);
 
-      const clientData = {
+      const companyInfo = {
         ...sampleClient,
         businessName: extractedData.find((f: ExtractedField) => f.fieldName === 'named_insured')?.value || sampleClient.businessName,
       };
 
-      fetch('/api/generate-cover-letter', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ clientData }),
-      })
-        .then(res => res.json())
-        .then(data => {
-          if (data.success) {
-            setCoverLetter(data.coverLetter);
-          } else {
-            showToast('Error generating cover letter');
-            setCoverLetter(enhancedCoverLetter);
-          }
+      import('@/lib/ai-client')
+        .then(({ generateCoverLetter }) => generateCoverLetter(extractedData, companyInfo))
+        .then(letter => {
+          setCoverLetter(letter);
         })
         .catch(err => {
           console.error('Cover letter generation error:', err);
