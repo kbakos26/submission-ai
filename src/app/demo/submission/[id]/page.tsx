@@ -108,12 +108,10 @@ function getDataRequirements(selectedLines: string[], extractedData: any[], isRe
 }
 
 const steps = [
-  { id: 1, name: 'Document Upload', key: 'upload' },
-  { id: 2, name: 'AI Data Extraction', key: 'extraction' },
-  { id: 3, name: 'Lines of Business', key: 'lob' },
-  { id: 4, name: 'Required Information', key: 'missing' },
-  { id: 5, name: 'ACORD Forms', key: 'acord' },
-  { id: 6, name: 'Submission Package', key: 'package' },
+  { id: 1, name: 'Upload Documents', key: 'upload' },
+  { id: 2, name: 'Lines of Business', key: 'lob' },
+  { id: 3, name: 'Review & Complete', key: 'review' },
+  { id: 4, name: 'Submission Package', key: 'package' },
 ];
 
 interface ParsedFile {
@@ -190,7 +188,7 @@ function SubmissionFlowContent() {
   const submission = dashboardSubmissions.find(s => s.id === submissionId);
 
   useEffect(() => {
-    if (currentStepKey === 'missing') {
+    if (currentStepKey === 'review') {
       // Build required data items based on selected lines of business
       const dataRequirements = getDataRequirements(selectedLines, extractedData, isRealUpload, parsedResults);
       setRequiredDocs(dataRequirements);
@@ -228,10 +226,8 @@ function SubmissionFlowContent() {
 
   const canProceed = () => {
     if (currentStepKey === 'upload') return documents.length > 0;
-    if (currentStepKey === 'extraction') return !isProcessing && extractedData.length > 0;
-    if (currentStepKey === 'missing') return true;
     if (currentStepKey === 'lob') return selectedLines.length > 0;
-    if (currentStepKey === 'acord') return formsApproved;
+    if (currentStepKey === 'review') return !isProcessing && extractedData.length > 0;
     if (currentStepKey === 'package') return true;
     return false;
   };
@@ -334,23 +330,6 @@ function SubmissionFlowContent() {
             showToast={showToast}
           />
         )}
-        {currentStepKey === 'extraction' && (
-          <DataExtractionStep
-            isRealUpload={isRealUpload}
-            parsedResults={parsedResults}
-            extractedData={extractedData}
-            setExtractedData={setExtractedData}
-            isProcessing={isProcessing}
-            setIsProcessing={setIsProcessing}
-          />
-        )}
-        {currentStepKey === 'missing' && (
-          <MissingDocumentsStep
-            requiredDocs={requiredDocs}
-            setRequiredDocs={setRequiredDocs}
-            showToast={showToast}
-          />
-        )}
         {currentStepKey === 'lob' && (
           <LinesOfBusinessStep
             selectedLines={selectedLines}
@@ -358,15 +337,18 @@ function SubmissionFlowContent() {
             showToast={showToast}
           />
         )}
-        {currentStepKey === 'acord' && (
-          <AcordFormsStep
-            formsApproved={formsApproved}
-            setFormsApproved={setFormsApproved}
-            showToast={showToast}
-            extractedData={extractedData}
+        {currentStepKey === 'review' && (
+          <ReviewCompleteStep
             isRealUpload={isRealUpload}
-            acordData={acordData}
-            setAcordData={setAcordData}
+            parsedResults={parsedResults}
+            extractedData={extractedData}
+            setExtractedData={setExtractedData}
+            isProcessing={isProcessing}
+            setIsProcessing={setIsProcessing}
+            requiredDocs={requiredDocs}
+            setRequiredDocs={setRequiredDocs}
+            showToast={showToast}
+            selectedLines={selectedLines}
           />
         )}
         {currentStepKey === 'package' && (
@@ -377,6 +359,9 @@ function SubmissionFlowContent() {
             coverLetter={coverLetter}
             setCoverLetter={setCoverLetter}
             acordData={acordData}
+            setAcordData={setAcordData}
+            formsApproved={formsApproved}
+            setFormsApproved={setFormsApproved}
             selectedLines={selectedLines}
           />
         )}
@@ -735,6 +720,247 @@ function DocumentUploadStep({
   );
 }
 
+function ReviewCompleteStep({
+  isRealUpload,
+  parsedResults,
+  extractedData,
+  setExtractedData,
+  isProcessing,
+  setIsProcessing,
+  requiredDocs,
+  setRequiredDocs,
+  showToast,
+  selectedLines,
+}: any) {
+  const [editingField, setEditingField] = useState<string | null>(null);
+  const [editedValues, setEditedValues] = useState<Record<string, string>>({});
+  const [showExtracted, setShowExtracted] = useState(false);
+
+  const handleEditField = (label: string) => setEditingField(label);
+  const handleSaveEdit = (label: string, newValue: string) => {
+    setEditedValues({ ...editedValues, [label]: newValue });
+    setExtractedData((prev: ExtractedField[]) =>
+      prev.map(field => field.label === label ? { ...field, value: newValue, confidence: 100 } : field)
+    );
+    setEditingField(null);
+  };
+
+  const handleManualInput = (idx: number, value: string) => {
+    setRequiredDocs((prev: any[]) =>
+      prev.map((doc, i) => (i === idx ? { ...doc, status: 'received', manualValue: value } : doc))
+    );
+    showToast('Value saved');
+  };
+
+  const handleFileUpload = async (idx: number, file: File) => {
+    showToast(`Uploading ${file.name}...`);
+    setRequiredDocs((prev: any[]) =>
+      prev.map((doc, i) => (i === idx ? { ...doc, status: 'received', manualValue: file.name } : doc))
+    );
+    showToast(`${file.name} uploaded`);
+  };
+
+  const handleSendFollowUp = (idx: number) => {
+    setRequiredDocs((prev: RequiredDocument[]) =>
+      prev.map((doc, i) => i === idx ? { ...doc, status: 'requested', requestedDate: new Date().toISOString().split('T')[0] } : doc)
+    );
+    showToast('Follow-up sent');
+  };
+
+  const receivedCount = requiredDocs.filter((d: any) => d.status === 'received').length;
+  const missingCount = requiredDocs.filter((d: any) => d.status !== 'received').length;
+  const categories = Array.from(new Set(requiredDocs.map((d: any) => d.category))) as string[];
+  const extractedCategories = [...new Set(extractedData.map((f: ExtractedField) => f.category))] as string[];
+
+  if (extractedData.length === 0 && !isProcessing) {
+    return (
+      <div className="bg-[var(--bg-secondary)] rounded-lg border border-[var(--border)] p-12 shadow-sm text-center">
+        <p className="text-xl mb-2 text-[var(--text-muted)]">No data extracted yet</p>
+        <p className="text-[var(--text-muted)]">Please upload documents in Step 1</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Extraction summary */}
+      {isProcessing ? (
+        <div className="bg-[var(--bg-secondary)] rounded-lg border border-[var(--border)] p-8 shadow-sm text-center">
+          <div className="animate-spin h-8 w-8 border-2 border-[var(--accent)] border-t-transparent rounded-full mx-auto mb-4" />
+          <p className="text-lg font-medium text-[var(--text-primary)]">Analyzing documents with AI...</p>
+          <p className="text-[var(--text-muted)] mt-1">Extracting data fields and matching to ACORD forms</p>
+        </div>
+      ) : (
+        <>
+          {/* Quick stats */}
+          <div className="bg-[var(--bg-secondary)] rounded-lg border border-[var(--border)] p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-2xl font-bold text-[var(--text-primary)]">Review & Complete</h2>
+                <p className="text-[var(--text-muted)]">
+                  {isRealUpload ? 'AI extracted data from your documents.' : 'Demo data loaded.'} Fill in any missing fields below.
+                </p>
+              </div>
+              <button
+                onClick={() => setShowExtracted(!showExtracted)}
+                className="text-sm text-[var(--accent)] hover:underline"
+              >
+                {showExtracted ? 'Hide' : 'Show'} all extracted data ({extractedData.length} fields)
+              </button>
+            </div>
+            <div className="flex gap-4">
+              <div className="flex items-center gap-2 px-4 py-2 bg-green-50 rounded-lg border border-green-200">
+                <span className="text-green-600 font-bold text-lg">{receivedCount}</span>
+                <span className="text-green-700 text-sm">Found</span>
+              </div>
+              <div className="flex items-center gap-2 px-4 py-2 bg-red-50 rounded-lg border border-red-200">
+                <span className="text-red-600 font-bold text-lg">{missingCount}</span>
+                <span className="text-red-700 text-sm">Missing</span>
+              </div>
+              <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg border border-blue-200">
+                <span className="text-blue-600 font-bold text-lg">{extractedData.length}</span>
+                <span className="text-blue-700 text-sm">Extracted</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Collapsible extracted data */}
+          {showExtracted && (
+            <div className="bg-[var(--bg-secondary)] rounded-lg border border-[var(--border)] p-6 shadow-sm">
+              <h3 className="text-lg font-semibold mb-4 text-[var(--text-primary)]">All Extracted Data</h3>
+              <div className="space-y-4">
+                {extractedCategories.map((category: string) => (
+                  <div key={category} className="bg-[var(--bg-primary)] rounded-lg p-4 border border-[var(--border)]">
+                    <h4 className="font-medium text-sm text-[var(--text-muted)] uppercase tracking-wider mb-3">{category}</h4>
+                    <div className="space-y-2">
+                      {extractedData
+                        .filter((f: ExtractedField) => f.category === category)
+                        .map((field: ExtractedField) => {
+                          const isFlagged = field.confidence < 95;
+                          const isEditing = editingField === field.label;
+                          const rawValue = editedValues[field.label] || field.value;
+                          const displayValue = typeof rawValue === "object" && rawValue !== null
+                            ? Object.entries(rawValue).map(([k, v]) => `${(k as string).charAt(0).toUpperCase() + (k as string).slice(1)}: ${v}`).join("  |  ")
+                            : String(rawValue ?? "");
+                          return (
+                            <div key={field.label} className={`p-3 rounded-lg border ${isFlagged ? 'bg-amber-50 border-amber-200' : 'bg-white border-[var(--border)]'}`}>
+                              <div className="flex items-start justify-between gap-4">
+                                <div className="flex-1">
+                                  <div className="flex items-center gap-2 mb-0.5">
+                                    <span className="font-medium text-sm text-[var(--text-primary)]">{field.label}</span>
+                                    {isFlagged && <span className="text-xs bg-amber-100 text-amber-700 px-2 py-0.5 rounded-full">Review</span>}
+                                  </div>
+                                  {isEditing ? (
+                                    <input type="text" defaultValue={displayValue}
+                                      onBlur={(e) => handleSaveEdit(field.label, e.target.value)}
+                                      onKeyDown={(e) => { if (e.key === 'Enter') handleSaveEdit(field.label, e.currentTarget.value); }}
+                                      autoFocus className="w-full px-3 py-1.5 border border-[var(--accent)] rounded focus:outline-none focus:ring-2 focus:ring-[var(--accent-glow)]" />
+                                  ) : (
+                                    <div className="text-sm text-[var(--text-secondary)]">{displayValue}</div>
+                                  )}
+                                  <div className="flex items-center gap-4 mt-1 text-xs text-[var(--text-muted)]">
+                                    <span>Source: {field.source}</span>
+                                    <span>Confidence: {field.confidence}%</span>
+                                  </div>
+                                </div>
+                                <button onClick={() => handleEditField(field.label)} className="text-[var(--accent)] hover:text-[var(--accent-light)] text-xs">Edit</button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Missing / Required fields */}
+          {categories.map((cat: string) => {
+            const catDocs = requiredDocs.filter((d: any) => d.category === cat);
+            const catMissing = catDocs.filter((d: any) => d.status !== 'received').length;
+            if (catMissing === 0) return (
+              <div key={cat} className="bg-[var(--bg-secondary)] rounded-lg border border-green-200 p-4 shadow-sm">
+                <div className="flex items-center justify-between">
+                  <h3 className="font-semibold text-[var(--text-primary)]">{cat}</h3>
+                  <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium">✓ {catDocs.length} items complete</span>
+                </div>
+              </div>
+            );
+            return (
+              <div key={cat} className="bg-[var(--bg-secondary)] rounded-lg border border-[var(--border)] p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-[var(--text-primary)]">{cat}</h3>
+                  <span className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded-full font-medium">{catMissing} missing</span>
+                </div>
+                <div className="space-y-2">
+                  {catDocs.map((doc: any, idx: number) => {
+                    const globalIdx = requiredDocs.indexOf(doc);
+                    return (
+                      <div key={idx} className={`p-3 bg-[var(--bg-primary)] rounded-lg border ${doc.status === 'received' ? 'border-green-200' : 'border-[var(--border)]'}`}>
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 ${
+                              doc.status === 'received' ? 'bg-green-100 text-green-600' :
+                              doc.status === 'requested' ? 'bg-amber-100 text-amber-600' :
+                              'bg-red-100 text-red-600'
+                            }`}>{doc.status === 'received' ? '✓' : '!'}</div>
+                            <div>
+                              <span className={`text-sm ${doc.status === 'received' ? 'text-[var(--text-primary)]' : 'text-[var(--text-primary)] font-medium'}`}>{doc.name}</span>
+                              {doc.status === 'received' && doc.manualValue && (
+                                <span className="text-xs text-green-600 ml-2">— {doc.manualValue}</span>
+                              )}
+                              {doc.status === 'requested' && doc.requestedDate && (
+                                <span className="text-xs text-[var(--text-muted)] ml-2">Requested {doc.requestedDate}</span>
+                              )}
+                            </div>
+                          </div>
+                          {doc.status !== 'received' && (
+                            <button onClick={() => handleSendFollowUp(globalIdx)}
+                              className="px-3 py-1.5 border border-[var(--border)] text-xs rounded-lg hover:bg-gray-50 flex-shrink-0">
+                              📧 Request
+                            </button>
+                          )}
+                        </div>
+                        {doc.status !== 'received' && (
+                          <div className="mt-2 ml-9">
+                            {doc.inputType === 'file' ? (
+                              <label className="flex items-center justify-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-[var(--accent)] hover:bg-blue-50 transition-all">
+                                <span className="text-sm text-[var(--text-muted)]">📎 Upload document</span>
+                                <input type="file" className="hidden" accept=".pdf,.doc,.docx,.xlsx,.csv,.jpg,.png"
+                                  onChange={(e) => { if (e.target.files?.[0]) handleFileUpload(globalIdx, e.target.files[0]); }} />
+                              </label>
+                            ) : doc.inputType === 'select' ? (
+                              <select className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] outline-none"
+                                defaultValue="" onChange={(e) => { if (e.target.value) handleManualInput(globalIdx, e.target.value); }}>
+                                <option value="" disabled>Select...</option>
+                                {(doc.options || []).map((opt: string) => (<option key={opt} value={opt}>{opt}</option>))}
+                              </select>
+                            ) : (
+                              <div className="flex gap-2">
+                                <input type={doc.inputType === 'number' ? 'number' : 'text'} placeholder={doc.placeholder || 'Enter value...'}
+                                  className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] outline-none"
+                                  onKeyDown={(e) => { if (e.key === 'Enter') { const val = (e.target as HTMLInputElement).value; if (val) handleManualInput(globalIdx, val); }}} />
+                                <button onClick={(e) => { const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement; if (input?.value) handleManualInput(globalIdx, input.value); }}
+                                  className="px-4 py-2 bg-[var(--accent)] text-white text-sm rounded-lg hover:bg-[var(--accent-light)]">Save</button>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })}
+        </>
+      )}
+    </div>
+  );
+}
+
+// Keep old components for reference but they're no longer used as separate steps
 function DataExtractionStep({
   isRealUpload,
   parsedResults,
@@ -1289,7 +1515,7 @@ function AcordFormsStep({
   );
 }
 
-function SubmissionPackageStep({ showToast, extractedData, isRealUpload, coverLetter, setCoverLetter, acordData, selectedLines }: any) {
+function SubmissionPackageStep({ showToast, extractedData, isRealUpload, coverLetter, setCoverLetter, acordData, setAcordData, formsApproved, setFormsApproved, selectedLines }: any) {
   const [expandedFolders, setExpandedFolders] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -1318,6 +1544,21 @@ function SubmissionPackageStep({ showToast, extractedData, isRealUpload, coverLe
       setCoverLetter(enhancedCoverLetter);
     }
   }, [extractedData, isRealUpload, coverLetter, isLoading]);
+
+  // Generate ACORD forms when entering this step
+  useEffect(() => {
+    if (!acordData && isRealUpload && extractedData.length > 0) {
+      import('@/lib/ai-client')
+        .then(({ generateAcordForms }) => generateAcordForms(extractedData))
+        .then(data => { setAcordData(data); })
+        .catch(err => {
+          console.error('ACORD generation error:', err);
+          setAcordData(acordFormData);
+        });
+    } else if (!isRealUpload && !acordData) {
+      setAcordData(acordFormData);
+    }
+  }, [extractedData, isRealUpload, acordData]);
 
   const toggleFolder = (name: string) => {
     setExpandedFolders(prev => (prev.includes(name) ? prev.filter(f => f !== name) : [...prev, name]));
