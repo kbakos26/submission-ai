@@ -16,11 +16,102 @@ import {
 import { analyzeDocumentText } from '@/lib/ai-client';
 import { ExtractedField, UploadedDocument, RequiredDocument } from '@/types';
 
+// Data requirements by line of business
+function getDataRequirements(selectedLines: string[], extractedData: any[], isRealUpload: boolean, parsedResults: any[]): any[] {
+  const core = [
+    { name: 'Named Insured / Legal Entity Name', category: 'Business Info', extractKeys: ['named_insured', 'legal_name', 'Legal Name'] },
+    { name: 'FEIN / Tax ID', category: 'Business Info', extractKeys: ['fein', 'tax_id', 'FEIN'] },
+    { name: 'Business Mailing Address', category: 'Business Info', extractKeys: ['mailing_address', 'address', 'Mailing Address'] },
+    { name: 'Entity Type (Corp, LLC, etc.)', category: 'Business Info', extractKeys: ['entity_type', 'Entity Type'] },
+    { name: 'NAICS / SIC Code', category: 'Business Info', extractKeys: ['naics', 'sic', 'NAICS Code'] },
+    { name: 'Description of Operations', category: 'Operations', extractKeys: ['description', 'operations', 'Description'] },
+    { name: 'Years in Business', category: 'Operations', extractKeys: ['years_in_business', 'Years in Business'] },
+    { name: 'Total Annual Revenue', category: 'Operations', extractKeys: ['annual_revenue', 'revenue', 'Annual Revenue'] },
+    { name: 'Number of Employees', category: 'Operations', extractKeys: ['employees', 'employee_count', 'Employee Count'] },
+    { name: 'Current Dec Pages', category: 'Documents', extractKeys: ['dec_page'] },
+    { name: 'Loss Runs (5 Years)', category: 'Documents', extractKeys: ['loss_run'] },
+    { name: 'Prior Carrier / Policy Info', category: 'Coverage History', extractKeys: ['prior_carrier', 'Prior Carrier'] },
+  ];
+  const lineReqs: Record<string, any[]> = {
+    gl: [
+      { name: 'GL Classification Code', category: 'General Liability', extractKeys: ['gl_code', 'classification'] },
+      { name: 'Gross Receipts / Sales by Location', category: 'General Liability', extractKeys: ['gross_receipts', 'sales'] },
+      { name: 'GL Limits Requested', category: 'General Liability', extractKeys: ['gl_limits', 'occurrence_limit'] },
+      { name: 'Subcontractor Costs (if applicable)', category: 'General Liability', extractKeys: ['subcontractor'] },
+      { name: 'Liquor License (if serving alcohol)', category: 'General Liability', extractKeys: ['liquor_license', 'Liquor'] },
+    ],
+    property: [
+      { name: 'Property Schedule / Statement of Values', category: 'Property', extractKeys: ['property_schedule'] },
+      { name: 'Building Values per Location', category: 'Property', extractKeys: ['building_value', 'Total Building Value'] },
+      { name: 'Contents / BPP Values per Location', category: 'Property', extractKeys: ['contents_value', 'Total Contents Value'] },
+      { name: 'Business Income Limit', category: 'Property', extractKeys: ['business_income', 'Business Income'] },
+      { name: 'Construction Type & Year Built', category: 'Property', extractKeys: ['construction', 'year_built', 'Construction Type'] },
+      { name: 'Square Footage per Location', category: 'Property', extractKeys: ['sq_footage'] },
+      { name: 'Fire / Burglar Alarm Details', category: 'Property', extractKeys: ['fire_alarm', 'burglar_alarm'] },
+      { name: 'Sprinkler System Details', category: 'Property', extractKeys: ['sprinkler', 'Sprinklered'] },
+      { name: 'Roof Type & Age', category: 'Property', extractKeys: ['roof_type'] },
+    ],
+    wc: [
+      { name: 'Payroll by Classification Code', category: 'Workers Comp', extractKeys: ['payroll', 'class_code'] },
+      { name: 'Experience Modification Rate (EMR)', category: 'Workers Comp', extractKeys: ['emr', 'experience_mod'] },
+      { name: 'Employee Count by Location', category: 'Workers Comp', extractKeys: ['employee_count_loc'] },
+      { name: 'NCCI Class Codes', category: 'Workers Comp', extractKeys: ['ncci', 'wc_class'] },
+      { name: 'Prior WC Policy Info', category: 'Workers Comp', extractKeys: ['wc_policy'] },
+      { name: 'OSHA 300 Log (if applicable)', category: 'Workers Comp', extractKeys: ['osha'] },
+    ],
+    auto: [
+      { name: 'Vehicle Schedule (Year/Make/Model/VIN)', category: 'Business Auto', extractKeys: ['vehicle', 'vin'] },
+      { name: 'Driver List with License Numbers', category: 'Business Auto', extractKeys: ['driver', 'license'] },
+      { name: 'MVR Reports (Motor Vehicle Records)', category: 'Business Auto', extractKeys: ['mvr'] },
+      { name: 'Radius of Operation', category: 'Business Auto', extractKeys: ['radius'] },
+      { name: 'Auto Liability Limits Requested', category: 'Business Auto', extractKeys: ['auto_limits'] },
+    ],
+    umbrella: [
+      { name: 'Underlying Policy Declarations', category: 'Umbrella', extractKeys: ['underlying'] },
+      { name: 'Umbrella Limits Requested', category: 'Umbrella', extractKeys: ['umbrella_limits'] },
+      { name: 'Schedule of Underlying Insurance', category: 'Umbrella', extractKeys: ['underlying_schedule'] },
+    ],
+    bop: [{ name: 'Business Description for BOP Eligibility', category: 'BOP', extractKeys: ['bop'] }],
+    crime: [
+      { name: 'Employee Count Handling Funds', category: 'Crime', extractKeys: ['funds_handling'] },
+      { name: 'Financial Controls Description', category: 'Crime', extractKeys: ['financial_controls'] },
+    ],
+    cyber: [
+      { name: 'Annual Revenue from Digital Operations', category: 'Cyber', extractKeys: ['digital_revenue'] },
+      { name: 'Number of PII Records Stored', category: 'Cyber', extractKeys: ['pii_records'] },
+      { name: 'Current Security Measures', category: 'Cyber', extractKeys: ['security_measures'] },
+    ],
+    epli: [
+      { name: 'Employee Handbook', category: 'EPLI', extractKeys: ['handbook'] },
+      { name: 'HR Policies & Procedures', category: 'EPLI', extractKeys: ['hr_policies'] },
+    ],
+    pl: [
+      { name: 'Professional Services Description', category: 'Prof Liability', extractKeys: ['prof_services'] },
+      { name: 'Revenue by Service Type', category: 'Prof Liability', extractKeys: ['service_revenue'] },
+    ],
+  };
+  const allReqs = [...core];
+  selectedLines.forEach((line: string) => { if (lineReqs[line]) allReqs.push(...lineReqs[line]); });
+  const extractedLabels = new Set(extractedData.map((f: any) => f.fieldName || f.label || ''));
+  const uploadedTypes = new Set((parsedResults || []).map((r: any) => r.documentType));
+  return allReqs.map(req => {
+    const found = req.extractKeys.some((key: string) => {
+      if (extractedLabels.has(key)) return true;
+      if (uploadedTypes.has(key)) return true;
+      for (const label of extractedLabels) {
+        if (typeof label === 'string' && label.toLowerCase().includes(key.toLowerCase())) return true;
+      }
+      return false;
+    });
+    return { name: req.name, status: found ? 'received' : 'missing', category: req.category };
+  });
+}
+
 const steps = [
   { id: 1, name: 'Document Upload', key: 'upload' },
   { id: 2, name: 'AI Data Extraction', key: 'extraction' },
-  { id: 3, name: 'Missing Documents', key: 'missing' },
-  { id: 4, name: 'Lines of Business', key: 'lob' },
+  { id: 3, name: 'Lines of Business', key: 'lob' },
+  { id: 4, name: 'Required Information', key: 'missing' },
   { id: 5, name: 'ACORD Forms', key: 'acord' },
   { id: 6, name: 'Submission Package', key: 'package' },
 ];
@@ -99,32 +190,12 @@ function SubmissionFlowContent() {
   const submission = dashboardSubmissions.find(s => s.id === submissionId);
 
   useEffect(() => {
-    if (currentStepKey === 'missing' && requiredDocs.length === 0) {
-      const docs = [...requiredDocuments];
-      
-      // If real upload, mark document types as received based on what was uploaded
-      if (isRealUpload && parsedResults.length > 0) {
-        const uploadedTypes = new Set(parsedResults.map(r => r.documentType));
-        
-        docs.forEach(doc => {
-          if (uploadedTypes.has('dec_page') && doc.name.toLowerCase().includes('dec page')) {
-            doc.status = 'received';
-          }
-          if (uploadedTypes.has('loss_run') && doc.name.toLowerCase().includes('loss run')) {
-            doc.status = 'received';
-          }
-          if (uploadedTypes.has('financial') && doc.name.toLowerCase().includes('financial')) {
-            doc.status = 'received';
-          }
-          if (uploadedTypes.has('property_schedule') && doc.name.toLowerCase().includes('property')) {
-            doc.status = 'received';
-          }
-        });
-      }
-      
-      setRequiredDocs(docs);
+    if (currentStepKey === 'missing') {
+      // Build required data items based on selected lines of business
+      const dataRequirements = getDataRequirements(selectedLines, extractedData, isRealUpload, parsedResults);
+      setRequiredDocs(dataRequirements);
     }
-  }, [currentStepKey, requiredDocs, isRealUpload, parsedResults]);
+  }, [currentStepKey, selectedLines, extractedData, isRealUpload, parsedResults]);
 
   const showToast = (message: string) => {
     setToast(message);
@@ -787,7 +858,7 @@ function DataExtractionStep({
   );
 }
 
-function MissingDocumentsStep({ requiredDocs, setRequiredDocs, showToast }: any) {
+function MissingDocumentsStep({ requiredDocs, setRequiredDocs, showToast, extractedData, isRealUpload, selectedLines }: any) {
   const handleMarkReceived = (idx: number) => {
     setRequiredDocs((prev: RequiredDocument[]) =>
       prev.map((doc, i) => (i === idx ? { ...doc, status: 'received' } : doc))
@@ -806,59 +877,85 @@ function MissingDocumentsStep({ requiredDocs, setRequiredDocs, showToast }: any)
     showToast('Follow-up email sent');
   };
 
+  const receivedCount = requiredDocs.filter((d: any) => d.status === 'received').length;
+  const missingCount = requiredDocs.filter((d: any) => d.status !== 'received').length;
+  const categories = Array.from(new Set(requiredDocs.map((d: any) => d.category))) as string[];
+
   return (
     <div className="space-y-6">
+      {/* Summary bar */}
       <div className="bg-[var(--bg-secondary)] rounded-lg border border-[var(--border)] p-6 shadow-sm">
-        <h2 className="text-2xl font-bold mb-2 text-[var(--text-primary)]">Required Documents</h2>
-        <p className="text-[var(--text-muted)] mb-6">Track missing documents and send follow-up requests</p>
-
-        <div className="space-y-3">
-          {requiredDocs.map((doc: RequiredDocument, idx: number) => (
-            <div
-              key={idx}
-              className="flex items-center justify-between p-4 bg-[var(--bg-primary)] rounded-lg border border-[var(--border)]"
-            >
-              <div className="flex items-center gap-3">
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                    doc.status === 'received'
-                      ? 'bg-[var(--success)]/10 text-[var(--success)]'
-                      : doc.status === 'requested'
-                      ? 'bg-amber-50 text-amber-600'
-                      : 'bg-red-50 text-red-600'
-                  }`}
-                >
-                  {doc.status === 'received' ? '✓' : '!'}
-                </div>
-                <div>
-                  <div className="font-medium text-[var(--text-primary)]">{doc.name}</div>
-                  {doc.status === 'requested' && doc.requestedDate && (
-                    <div className="text-xs text-[var(--text-muted)]">Requested on {doc.requestedDate}</div>
-                  )}
-                </div>
-              </div>
-              <div className="flex items-center gap-2">
-                {doc.status !== 'received' && (
-                  <>
-                    <button
-                      onClick={() => handleMarkReceived(idx)}
-                      className="px-4 py-2 bg-[var(--success)] text-white text-sm rounded-lg hover:opacity-90 transition-all"
-                    >
-                      Mark as Received
-                    </button>
-                    <button
-                      onClick={() => handleSendFollowUp(idx)}
-                      className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all"
-                    >
-                      Send Follow-Up
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-          ))}
+        <h2 className="text-2xl font-bold mb-2 text-[var(--text-primary)]">Required Information</h2>
+        <p className="text-[var(--text-muted)] mb-4">Data and documents needed to complete your ACORD forms. Items are checked against what was extracted from your uploads.</p>
+        <div className="flex gap-4">
+          <div className="flex items-center gap-2 px-4 py-2 bg-green-50 rounded-lg border border-green-200">
+            <span className="text-green-600 font-bold text-lg">{receivedCount}</span>
+            <span className="text-green-700 text-sm">Found</span>
+          </div>
+          <div className="flex items-center gap-2 px-4 py-2 bg-red-50 rounded-lg border border-red-200">
+            <span className="text-red-600 font-bold text-lg">{missingCount}</span>
+            <span className="text-red-700 text-sm">Missing</span>
+          </div>
+          <div className="flex items-center gap-2 px-4 py-2 bg-blue-50 rounded-lg border border-blue-200">
+            <span className="text-blue-600 font-bold text-lg">{requiredDocs.length}</span>
+            <span className="text-blue-700 text-sm">Total Required</span>
+          </div>
         </div>
       </div>
+
+      {/* Categorized requirements */}
+      {categories.map((cat: string) => {
+        const catDocs = requiredDocs.filter((d: any) => d.category === cat);
+        const catMissing = catDocs.filter((d: any) => d.status !== 'received').length;
+        return (
+          <div key={cat} className="bg-[var(--bg-secondary)] rounded-lg border border-[var(--border)] p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-[var(--text-primary)]">{cat}</h3>
+              {catMissing > 0 ? (
+                <span className="text-xs bg-red-100 text-red-700 px-3 py-1 rounded-full font-medium">{catMissing} missing</span>
+              ) : (
+                <span className="text-xs bg-green-100 text-green-700 px-3 py-1 rounded-full font-medium">✓ Complete</span>
+              )}
+            </div>
+            <div className="space-y-2">
+              {catDocs.map((doc: any, idx: number) => {
+                const globalIdx = requiredDocs.indexOf(doc);
+                return (
+                  <div key={idx} className="flex items-center justify-between p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--border)]">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
+                        doc.status === 'received' ? 'bg-green-100 text-green-600' :
+                        doc.status === 'requested' ? 'bg-amber-100 text-amber-600' :
+                        'bg-red-100 text-red-600'
+                      }`}>
+                        {doc.status === 'received' ? '✓' : '!'}
+                      </div>
+                      <div>
+                        <span className={`text-sm ${doc.status === 'received' ? 'text-[var(--text-primary)]' : 'text-[var(--text-primary)] font-medium'}`}>{doc.name}</span>
+                        {doc.status === 'requested' && doc.requestedDate && (
+                          <span className="text-xs text-[var(--text-muted)] ml-2">Requested {doc.requestedDate}</span>
+                        )}
+                      </div>
+                    </div>
+                    {doc.status !== 'received' && (
+                      <div className="flex gap-2">
+                        <button onClick={() => handleMarkReceived(globalIdx)}
+                          className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700">
+                          ✓ Have It
+                        </button>
+                        <button onClick={() => handleSendFollowUp(globalIdx)}
+                          className="px-3 py-1.5 border border-[var(--border)] text-xs rounded-lg hover:bg-gray-50">
+                          Request
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
