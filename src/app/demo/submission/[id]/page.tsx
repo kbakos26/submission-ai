@@ -20,8 +20,9 @@ const steps = [
   { id: 1, name: 'Document Upload', key: 'upload' },
   { id: 2, name: 'AI Data Extraction', key: 'extraction' },
   { id: 3, name: 'Missing Documents', key: 'missing' },
-  { id: 4, name: 'ACORD Forms', key: 'acord' },
-  { id: 5, name: 'Submission Package', key: 'package' },
+  { id: 4, name: 'Lines of Business', key: 'lob' },
+  { id: 5, name: 'ACORD Forms', key: 'acord' },
+  { id: 6, name: 'Submission Package', key: 'package' },
 ];
 
 interface ParsedFile {
@@ -54,6 +55,7 @@ function SubmissionFlowContent() {
   const [toast, setToast] = useState<string | null>(null);
   const [coverLetter, setCoverLetter] = useState<string>('');
   const [acordData, setAcordData] = useState<any>(null);
+  const [selectedLines, setSelectedLines] = useState<string[]>(['gl', 'property']);
 
   // Persist critical state to sessionStorage so it survives step navigation and refresh
   useEffect(() => {
@@ -72,6 +74,7 @@ function SubmissionFlowContent() {
         if (parsed.isRealUpload) setIsRealUpload(true);
         if (parsed.coverLetter) setCoverLetter(parsed.coverLetter);
         if (parsed.acordData) setAcordData(parsed.acordData);
+        if (parsed.selectedLines) setSelectedLines(parsed.selectedLines);
       }
     } catch (e) {
       sessionStorage.removeItem('submission-ai-state');
@@ -87,6 +90,7 @@ function SubmissionFlowContent() {
           isRealUpload,
           coverLetter,
           acordData,
+          selectedLines,
         }));
       }
     } catch (e) {}
@@ -155,6 +159,7 @@ function SubmissionFlowContent() {
     if (currentStepKey === 'upload') return documents.length > 0;
     if (currentStepKey === 'extraction') return !isProcessing && extractedData.length > 0;
     if (currentStepKey === 'missing') return true;
+    if (currentStepKey === 'lob') return selectedLines.length > 0;
     if (currentStepKey === 'acord') return formsApproved;
     if (currentStepKey === 'package') return true;
     return false;
@@ -275,6 +280,13 @@ function SubmissionFlowContent() {
             showToast={showToast}
           />
         )}
+        {currentStepKey === 'lob' && (
+          <LinesOfBusinessStep
+            selectedLines={selectedLines}
+            setSelectedLines={setSelectedLines}
+            showToast={showToast}
+          />
+        )}
         {currentStepKey === 'acord' && (
           <AcordFormsStep
             formsApproved={formsApproved}
@@ -294,6 +306,7 @@ function SubmissionFlowContent() {
             coverLetter={coverLetter}
             setCoverLetter={setCoverLetter}
             acordData={acordData}
+            selectedLines={selectedLines}
           />
         )}
 
@@ -850,6 +863,135 @@ function MissingDocumentsStep({ requiredDocs, setRequiredDocs, showToast }: any)
   );
 }
 
+
+function LinesOfBusinessStep({ selectedLines, setSelectedLines, showToast }: any) {
+  const lines = [
+    { id: 'gl', icon: '🛡️', label: 'General Liability', desc: 'Bodily injury, property damage, personal & advertising injury', forms: ['125', '126'], common: true },
+    { id: 'property', icon: '🏢', label: 'Commercial Property', desc: 'Buildings, contents, business income, equipment breakdown', forms: ['125', '140'], common: true },
+    { id: 'wc', icon: '👷', label: 'Workers Compensation', desc: 'Employee injuries, employers liability coverage', forms: ['125', '130'], common: true },
+    { id: 'auto', icon: '🚛', label: 'Business Auto', desc: 'Commercial vehicles, hired & non-owned auto liability', forms: ['125', '127'], common: true },
+    { id: 'umbrella', icon: '☂️', label: 'Umbrella / Excess', desc: 'Additional liability limits above underlying policies', forms: ['125', '131'], common: true },
+    { id: 'bop', icon: '📦', label: 'Business Owners (BOP)', desc: 'Combined GL + Property for qualifying small businesses', forms: ['125'], common: false },
+    { id: 'crime', icon: '🔒', label: 'Commercial Crime', desc: 'Employee theft, forgery, computer fraud, funds transfer', forms: ['125'], common: false },
+    { id: 'cyber', icon: '💻', label: 'Cyber Liability', desc: 'Data breach response, network security, privacy liability', forms: ['125'], common: false },
+    { id: 'epli', icon: '⚖️', label: 'Employment Practices (EPLI)', desc: 'Discrimination, wrongful termination, harassment claims', forms: ['125'], common: false },
+    { id: 'pl', icon: '📋', label: 'Professional Liability / E&O', desc: 'Professional negligence, errors & omissions coverage', forms: ['125'], common: false },
+  ];
+
+  const toggle = (id: string) => {
+    setSelectedLines((prev: string[]) => prev.includes(id) ? prev.filter((l: string) => l !== id) : [...prev, id]);
+  };
+
+  const allForms = new Set<string>();
+  selectedLines.forEach((id: string) => {
+    const line = lines.find(l => l.id === id);
+    line?.forms.forEach(f => allForms.add(f));
+  });
+
+  const formLabels: Record<string, string> = {
+    '125': 'ACORD 125 — Commercial Application',
+    '126': 'ACORD 126 — General Liability',
+    '127': 'ACORD 127 — Business Auto',
+    '130': 'ACORD 130 — Workers Compensation',
+    '131': 'ACORD 131 — Umbrella / Excess',
+    '140': 'ACORD 140 — Property Section',
+  };
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-[var(--bg-secondary)] rounded-lg border border-[var(--border)] p-6 shadow-sm">
+        <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-2">Lines of Business</h2>
+        <p className="text-[var(--text-muted)] mb-6">Select the coverage lines for this submission. We'll generate the correct ACORD forms automatically.</p>
+
+        <div className="mb-4">
+          <h3 className="text-sm font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">Common Lines</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {lines.filter(l => l.common).map(line => (
+              <button
+                key={line.id}
+                onClick={() => toggle(line.id)}
+                className={`flex items-start gap-4 p-4 rounded-lg border-2 transition-all text-left ${
+                  selectedLines.includes(line.id)
+                    ? 'border-[var(--accent)] bg-blue-50 shadow-sm'
+                    : 'border-[var(--border)] bg-[var(--bg-primary)] hover:border-gray-300'
+                }`}
+              >
+                <div className="text-2xl mt-0.5">{line.icon}</div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-[var(--text-primary)]">{line.label}</span>
+                    {selectedLines.includes(line.id) && (
+                      <span className="text-xs bg-[var(--accent)] text-white px-2 py-0.5 rounded-full">Selected</span>
+                    )}
+                  </div>
+                  <p className="text-sm text-[var(--text-muted)] mt-1">{line.desc}</p>
+                  <p className="text-xs text-[var(--text-muted)] mt-1.5">
+                    Forms: {line.forms.map(f => `ACORD ${f}`).join(', ')}
+                  </p>
+                </div>
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center mt-1 ${
+                  selectedLines.includes(line.id) ? 'border-[var(--accent)] bg-[var(--accent)]' : 'border-gray-300'
+                }`}>
+                  {selectedLines.includes(line.id) && <span className="text-white text-xs">✓</span>}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="mt-6">
+          <h3 className="text-sm font-semibold text-[var(--text-muted)] uppercase tracking-wider mb-3">Specialty Lines</h3>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {lines.filter(l => !l.common).map(line => (
+              <button
+                key={line.id}
+                onClick={() => toggle(line.id)}
+                className={`flex items-start gap-4 p-4 rounded-lg border-2 transition-all text-left ${
+                  selectedLines.includes(line.id)
+                    ? 'border-[var(--accent)] bg-blue-50 shadow-sm'
+                    : 'border-[var(--border)] bg-[var(--bg-primary)] hover:border-gray-300'
+                }`}
+              >
+                <div className="text-2xl mt-0.5">{line.icon}</div>
+                <div className="flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="font-semibold text-[var(--text-primary)]">{line.label}</span>
+                    {selectedLines.includes(line.id) && (
+                      <span className="text-xs bg-[var(--accent)] text-white px-2 py-0.5 rounded-full">Selected</span>
+                    )}
+                  </div>
+                  <p className="text-sm text-[var(--text-muted)] mt-1">{line.desc}</p>
+                </div>
+                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center mt-1 ${
+                  selectedLines.includes(line.id) ? 'border-[var(--accent)] bg-[var(--accent)]' : 'border-gray-300'
+                }`}>
+                  {selectedLines.includes(line.id) && <span className="text-white text-xs">✓</span>}
+                </div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {selectedLines.length > 0 && (
+        <div className="bg-[var(--bg-secondary)] rounded-lg border border-[var(--border)] p-6 shadow-sm">
+          <h3 className="text-lg font-semibold text-[var(--text-primary)] mb-3">Forms to Generate</h3>
+          <p className="text-sm text-[var(--text-muted)] mb-4">Based on your selections, these ACORD forms will be auto-populated:</p>
+          <div className="space-y-2">
+            {Array.from(allForms).sort().map(f => (
+              <div key={f} className="flex items-center gap-3 p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--border)]">
+                <span className="text-lg">📋</span>
+                <span className="font-medium text-[var(--text-primary)]">{formLabels[f] || `ACORD ${f}`}</span>
+                {f === '125' && <span className="text-xs bg-gray-200 text-gray-600 px-2 py-0.5 rounded">Always Required</span>}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AcordFormsStep({
   formsApproved,
   setFormsApproved,
@@ -1077,7 +1219,7 @@ function AcordFormsStep({
   );
 }
 
-function SubmissionPackageStep({ showToast, extractedData, isRealUpload, coverLetter, setCoverLetter, acordData }: any) {
+function SubmissionPackageStep({ showToast, extractedData, isRealUpload, coverLetter, setCoverLetter, acordData, selectedLines }: any) {
   const [expandedFolders, setExpandedFolders] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -1137,11 +1279,32 @@ function SubmissionPackageStep({ showToast, extractedData, isRealUpload, coverLe
     showToast('Downloading all package files...');
   };
 
+  const allFormDefs: Record<string, { name: string; icon: string }> = {
+    '125': { name: 'ACORD 125 — Commercial Application', icon: '📋' },
+    '126': { name: 'ACORD 126 — General Liability', icon: '📋' },
+    '127': { name: 'ACORD 127 — Business Auto', icon: '📋' },
+    '130': { name: 'ACORD 130 — Workers Compensation', icon: '📋' },
+    '131': { name: 'ACORD 131 — Umbrella / Excess', icon: '📋' },
+    '140': { name: 'ACORD 140 — Property Section', icon: '📋' },
+  };
+
+  const lobFormMap: Record<string, string[]> = {
+    gl: ['125', '126'], property: ['125', '140'], wc: ['125', '130'],
+    auto: ['125', '127'], umbrella: ['125', '131'], bop: ['125'],
+    crime: ['125'], cyber: ['125'], epli: ['125'], pl: ['125'],
+  };
+
+  const requiredFormNums = new Set<string>();
+  (selectedLines || ['gl', 'property']).forEach((l: string) => {
+    lobFormMap[l]?.forEach(f => requiredFormNums.add(f));
+  });
+
   const packageFiles = [
-    { name: 'ACORD 125 — Commercial Application', type: 'acord125', icon: '📋' },
-    { name: 'ACORD 126 — General Liability', type: 'acord126', icon: '📋' },
-    { name: 'ACORD 140 — Property Section', type: 'acord140', icon: '📋' },
-    { name: 'ACORD 130 — Workers Comp', type: 'acord130', icon: '📋' },
+    ...Array.from(requiredFormNums).sort().map(f => ({
+      name: allFormDefs[f]?.name || 'ACORD ' + f,
+      type: 'acord' + f,
+      icon: allFormDefs[f]?.icon || '📋',
+    })),
     { name: 'Cover Letter', type: 'cover-letter', icon: '✉️' },
     { name: 'ACORD XML Export', type: 'acord-xml', icon: '📦' },
   ];
@@ -1155,12 +1318,10 @@ function SubmissionPackageStep({ showToast, extractedData, isRealUpload, coverLe
         showToast('ACORD XML downloaded');
       });
     } else if (acordData) {
+      const formNum = fileType.replace('acord', '');
       import('@/lib/acord-pdf').then(mod => {
-        if (fileType === 'acord125') mod.generateAcord125PDF(acordData.acord125);
-        else if (fileType === 'acord126') mod.generateAcord126PDF(acordData.acord126);
-        else if (fileType === 'acord140') mod.generateAcord140PDF(acordData.acord140);
-        else if (fileType === 'acord130') mod.generateAcord130PDF(acordData.acord130);
-        showToast(`${fileType.toUpperCase()} PDF downloaded`);
+        mod.generateFormPDF(formNum, acordData);
+        showToast('ACORD ' + formNum + ' PDF downloaded');
       });
     }
   };
