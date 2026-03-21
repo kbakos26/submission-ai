@@ -18,76 +18,76 @@ import { ExtractedField, UploadedDocument, RequiredDocument } from '@/types';
 
 // Data requirements by line of business
 function getDataRequirements(selectedLines: string[], extractedData: any[], isRealUpload: boolean, parsedResults: any[]): any[] {
-  const core = [
-    { name: 'Named Insured / Legal Entity Name', category: 'Business Info', extractKeys: ['named_insured', 'legal_name', 'Legal Name'] },
-    { name: 'FEIN / Tax ID', category: 'Business Info', extractKeys: ['fein', 'tax_id', 'FEIN'] },
-    { name: 'Business Mailing Address', category: 'Business Info', extractKeys: ['mailing_address', 'address', 'Mailing Address'] },
-    { name: 'Entity Type (Corp, LLC, etc.)', category: 'Business Info', extractKeys: ['entity_type', 'Entity Type'] },
-    { name: 'NAICS / SIC Code', category: 'Business Info', extractKeys: ['naics', 'sic', 'NAICS Code'] },
-    { name: 'Description of Operations', category: 'Operations', extractKeys: ['description', 'operations', 'Description'] },
-    { name: 'Years in Business', category: 'Operations', extractKeys: ['years_in_business', 'Years in Business'] },
-    { name: 'Total Annual Revenue', category: 'Operations', extractKeys: ['annual_revenue', 'revenue', 'Annual Revenue'] },
-    { name: 'Number of Employees', category: 'Operations', extractKeys: ['employees', 'employee_count', 'Employee Count'] },
-    { name: 'Current Dec Pages', category: 'Documents', extractKeys: ['dec_page'] },
-    { name: 'Loss Runs (5 Years)', category: 'Documents', extractKeys: ['loss_run'] },
-    { name: 'Prior Carrier / Policy Info', category: 'Coverage History', extractKeys: ['prior_carrier', 'Prior Carrier'] },
+  const core: { name: string; category: string; extractKeys: string[]; inputType: string; placeholder?: string; options?: string[] }[] = [
+    { name: 'Named Insured / Legal Entity Name', category: 'Business Info', extractKeys: ['named_insured', 'legal_name', 'Legal Name'], inputType: 'text', placeholder: 'e.g. Acme Corp, Inc.' },
+    { name: 'FEIN / Tax ID', category: 'Business Info', extractKeys: ['fein', 'tax_id', 'FEIN'], inputType: 'text', placeholder: 'XX-XXXXXXX' },
+    { name: 'Business Mailing Address', category: 'Business Info', extractKeys: ['mailing_address', 'address', 'Mailing Address'], inputType: 'text', placeholder: '123 Main St, City, ST 00000' },
+    { name: 'Entity Type (Corp, LLC, etc.)', category: 'Business Info', extractKeys: ['entity_type', 'Entity Type'], inputType: 'select', options: ['Corporation', 'LLC', 'Partnership', 'Sole Proprietor', 'Joint Venture', 'Non-Profit', 'Trust'] },
+    { name: 'NAICS / SIC Code', category: 'Business Info', extractKeys: ['naics', 'sic', 'NAICS Code'], inputType: 'text', placeholder: 'e.g. 722511' },
+    { name: 'Description of Operations', category: 'Operations', extractKeys: ['description', 'operations', 'Description'], inputType: 'text', placeholder: 'Describe primary business operations...' },
+    { name: 'Years in Business', category: 'Operations', extractKeys: ['years_in_business', 'Years in Business'], inputType: 'number', placeholder: 'e.g. 10' },
+    { name: 'Total Annual Revenue', category: 'Operations', extractKeys: ['annual_revenue', 'revenue', 'Annual Revenue'], inputType: 'number', placeholder: 'e.g. 5000000' },
+    { name: 'Number of Employees', category: 'Operations', extractKeys: ['employees', 'employee_count', 'Employee Count'], inputType: 'number', placeholder: 'e.g. 50' },
+    { name: 'Current Dec Pages', category: 'Documents', extractKeys: ['dec_page'], inputType: 'file' },
+    { name: 'Loss Runs (5 Years)', category: 'Documents', extractKeys: ['loss_run'], inputType: 'file' },
+    { name: 'Prior Carrier / Policy Info', category: 'Coverage History', extractKeys: ['prior_carrier', 'Prior Carrier'], inputType: 'text', placeholder: 'Carrier name and policy number' },
   ];
   const lineReqs: Record<string, any[]> = {
     gl: [
-      { name: 'GL Classification Code', category: 'General Liability', extractKeys: ['gl_code', 'classification'] },
-      { name: 'Gross Receipts / Sales by Location', category: 'General Liability', extractKeys: ['gross_receipts', 'sales'] },
-      { name: 'GL Limits Requested', category: 'General Liability', extractKeys: ['gl_limits', 'occurrence_limit'] },
-      { name: 'Subcontractor Costs (if applicable)', category: 'General Liability', extractKeys: ['subcontractor'] },
-      { name: 'Liquor License (if serving alcohol)', category: 'General Liability', extractKeys: ['liquor_license', 'Liquor'] },
+      { name: 'GL Classification Code', category: 'General Liability', extractKeys: ['gl_code', 'classification'], inputType: 'text', placeholder: 'e.g. 58241' },
+      { name: 'Gross Receipts / Sales by Location', category: 'General Liability', extractKeys: ['gross_receipts', 'sales'], inputType: 'number', placeholder: 'Total gross receipts' },
+      { name: 'GL Limits Requested', category: 'General Liability', extractKeys: ['gl_limits', 'occurrence_limit'], inputType: 'select', options: ['$1M/$2M', '$1M/$1M', '$2M/$4M', '$500K/$1M'] },
+      { name: 'Subcontractor Costs (if applicable)', category: 'General Liability', extractKeys: ['subcontractor'], inputType: 'number', placeholder: 'Annual subcontractor costs' },
+      { name: 'Liquor License (if serving alcohol)', category: 'General Liability', extractKeys: ['liquor_license', 'Liquor'], inputType: 'file' },
     ],
     property: [
-      { name: 'Property Schedule / Statement of Values', category: 'Property', extractKeys: ['property_schedule'] },
-      { name: 'Building Values per Location', category: 'Property', extractKeys: ['building_value', 'Total Building Value'] },
-      { name: 'Contents / BPP Values per Location', category: 'Property', extractKeys: ['contents_value', 'Total Contents Value'] },
-      { name: 'Business Income Limit', category: 'Property', extractKeys: ['business_income', 'Business Income'] },
-      { name: 'Construction Type & Year Built', category: 'Property', extractKeys: ['construction', 'year_built', 'Construction Type'] },
-      { name: 'Square Footage per Location', category: 'Property', extractKeys: ['sq_footage'] },
-      { name: 'Fire / Burglar Alarm Details', category: 'Property', extractKeys: ['fire_alarm', 'burglar_alarm'] },
-      { name: 'Sprinkler System Details', category: 'Property', extractKeys: ['sprinkler', 'Sprinklered'] },
-      { name: 'Roof Type & Age', category: 'Property', extractKeys: ['roof_type'] },
+      { name: 'Property Schedule / Statement of Values', category: 'Property', extractKeys: ['property_schedule'], inputType: 'file' },
+      { name: 'Building Values per Location', category: 'Property', extractKeys: ['building_value', 'Total Building Value'], inputType: 'number', placeholder: 'Total building value' },
+      { name: 'Contents / BPP Values per Location', category: 'Property', extractKeys: ['contents_value', 'Total Contents Value'], inputType: 'number', placeholder: 'Total contents value' },
+      { name: 'Business Income Limit', category: 'Property', extractKeys: ['business_income', 'Business Income'], inputType: 'number', placeholder: 'Business income limit' },
+      { name: 'Construction Type & Year Built', category: 'Property', extractKeys: ['construction', 'year_built', 'Construction Type'], inputType: 'text', placeholder: 'e.g. Frame, 1995' },
+      { name: 'Square Footage per Location', category: 'Property', extractKeys: ['sq_footage'], inputType: 'number', placeholder: 'Total sq ft' },
+      { name: 'Fire / Burglar Alarm Details', category: 'Property', extractKeys: ['fire_alarm', 'burglar_alarm'], inputType: 'text', placeholder: 'e.g. Central station, local alarm' },
+      { name: 'Sprinkler System Details', category: 'Property', extractKeys: ['sprinkler', 'Sprinklered'], inputType: 'select', options: ['Fully Sprinklered', 'Partially Sprinklered', 'Not Sprinklered'] },
+      { name: 'Roof Type & Age', category: 'Property', extractKeys: ['roof_type'], inputType: 'text', placeholder: 'e.g. Built-up, 2015' },
     ],
     wc: [
-      { name: 'Payroll by Classification Code', category: 'Workers Comp', extractKeys: ['payroll', 'class_code'] },
-      { name: 'Experience Modification Rate (EMR)', category: 'Workers Comp', extractKeys: ['emr', 'experience_mod'] },
-      { name: 'Employee Count by Location', category: 'Workers Comp', extractKeys: ['employee_count_loc'] },
-      { name: 'NCCI Class Codes', category: 'Workers Comp', extractKeys: ['ncci', 'wc_class'] },
-      { name: 'Prior WC Policy Info', category: 'Workers Comp', extractKeys: ['wc_policy'] },
-      { name: 'OSHA 300 Log (if applicable)', category: 'Workers Comp', extractKeys: ['osha'] },
+      { name: 'Payroll by Classification Code', category: 'Workers Comp', extractKeys: ['payroll', 'class_code'], inputType: 'file' },
+      { name: 'Experience Modification Rate (EMR)', category: 'Workers Comp', extractKeys: ['emr', 'experience_mod'], inputType: 'text', placeholder: 'e.g. 0.95' },
+      { name: 'Employee Count by Location', category: 'Workers Comp', extractKeys: ['employee_count_loc'], inputType: 'number', placeholder: 'Per location' },
+      { name: 'NCCI Class Codes', category: 'Workers Comp', extractKeys: ['ncci', 'wc_class'], inputType: 'text', placeholder: 'e.g. 8810, 8742' },
+      { name: 'Prior WC Policy Info', category: 'Workers Comp', extractKeys: ['wc_policy'], inputType: 'text', placeholder: 'Carrier, policy #, premium' },
+      { name: 'OSHA 300 Log (if applicable)', category: 'Workers Comp', extractKeys: ['osha'], inputType: 'file' },
     ],
     auto: [
-      { name: 'Vehicle Schedule (Year/Make/Model/VIN)', category: 'Business Auto', extractKeys: ['vehicle', 'vin'] },
-      { name: 'Driver List with License Numbers', category: 'Business Auto', extractKeys: ['driver', 'license'] },
-      { name: 'MVR Reports (Motor Vehicle Records)', category: 'Business Auto', extractKeys: ['mvr'] },
-      { name: 'Radius of Operation', category: 'Business Auto', extractKeys: ['radius'] },
-      { name: 'Auto Liability Limits Requested', category: 'Business Auto', extractKeys: ['auto_limits'] },
+      { name: 'Vehicle Schedule (Year/Make/Model/VIN)', category: 'Business Auto', extractKeys: ['vehicle', 'vin'], inputType: 'file' },
+      { name: 'Driver List with License Numbers', category: 'Business Auto', extractKeys: ['driver', 'license'], inputType: 'file' },
+      { name: 'MVR Reports (Motor Vehicle Records)', category: 'Business Auto', extractKeys: ['mvr'], inputType: 'file' },
+      { name: 'Radius of Operation', category: 'Business Auto', extractKeys: ['radius'], inputType: 'select', options: ['Local (0-50 miles)', 'Intermediate (50-200 miles)', 'Long Distance (200+ miles)', 'Nationwide'] },
+      { name: 'Auto Liability Limits Requested', category: 'Business Auto', extractKeys: ['auto_limits'], inputType: 'select', options: ['$1M CSL', '$500K/$1M', '$1M/$1M', '$250K/$500K'] },
     ],
     umbrella: [
-      { name: 'Underlying Policy Declarations', category: 'Umbrella', extractKeys: ['underlying'] },
-      { name: 'Umbrella Limits Requested', category: 'Umbrella', extractKeys: ['umbrella_limits'] },
-      { name: 'Schedule of Underlying Insurance', category: 'Umbrella', extractKeys: ['underlying_schedule'] },
+      { name: 'Underlying Policy Declarations', category: 'Umbrella', extractKeys: ['underlying'], inputType: 'file' },
+      { name: 'Umbrella Limits Requested', category: 'Umbrella', extractKeys: ['umbrella_limits'], inputType: 'select', options: ['$1M/$1M', '$2M/$2M', '$5M/$5M', '$10M/$10M'] },
+      { name: 'Schedule of Underlying Insurance', category: 'Umbrella', extractKeys: ['underlying_schedule'], inputType: 'file' },
     ],
-    bop: [{ name: 'Business Description for BOP Eligibility', category: 'BOP', extractKeys: ['bop'] }],
+    bop: [{ name: 'Business Description for BOP Eligibility', category: 'BOP', extractKeys: ['bop'], inputType: 'text', placeholder: 'Describe operations' }],
     crime: [
-      { name: 'Employee Count Handling Funds', category: 'Crime', extractKeys: ['funds_handling'] },
-      { name: 'Financial Controls Description', category: 'Crime', extractKeys: ['financial_controls'] },
+      { name: 'Employee Count Handling Funds', category: 'Crime', extractKeys: ['funds_handling'], inputType: 'number', placeholder: 'Number of employees' },
+      { name: 'Financial Controls Description', category: 'Crime', extractKeys: ['financial_controls'], inputType: 'text', placeholder: 'Describe controls in place' },
     ],
     cyber: [
-      { name: 'Annual Revenue from Digital Operations', category: 'Cyber', extractKeys: ['digital_revenue'] },
-      { name: 'Number of PII Records Stored', category: 'Cyber', extractKeys: ['pii_records'] },
-      { name: 'Current Security Measures', category: 'Cyber', extractKeys: ['security_measures'] },
+      { name: 'Annual Revenue from Digital Operations', category: 'Cyber', extractKeys: ['digital_revenue'], inputType: 'number', placeholder: 'Digital revenue' },
+      { name: 'Number of PII Records Stored', category: 'Cyber', extractKeys: ['pii_records'], inputType: 'number', placeholder: 'Number of records' },
+      { name: 'Current Security Measures', category: 'Cyber', extractKeys: ['security_measures'], inputType: 'text', placeholder: 'MFA, encryption, etc.' },
     ],
     epli: [
-      { name: 'Employee Handbook', category: 'EPLI', extractKeys: ['handbook'] },
-      { name: 'HR Policies & Procedures', category: 'EPLI', extractKeys: ['hr_policies'] },
+      { name: 'Employee Handbook', category: 'EPLI', extractKeys: ['handbook'], inputType: 'file' },
+      { name: 'HR Policies & Procedures', category: 'EPLI', extractKeys: ['hr_policies'], inputType: 'file' },
     ],
     pl: [
-      { name: 'Professional Services Description', category: 'Prof Liability', extractKeys: ['prof_services'] },
-      { name: 'Revenue by Service Type', category: 'Prof Liability', extractKeys: ['service_revenue'] },
+      { name: 'Professional Services Description', category: 'Prof Liability', extractKeys: ['prof_services'], inputType: 'text', placeholder: 'Describe services provided' },
+      { name: 'Revenue by Service Type', category: 'Prof Liability', extractKeys: ['service_revenue'], inputType: 'text', placeholder: 'Revenue breakdown' },
     ],
   };
   const allReqs = [...core];
@@ -103,7 +103,7 @@ function getDataRequirements(selectedLines: string[], extractedData: any[], isRe
       }
       return false;
     });
-    return { name: req.name, status: found ? 'received' : 'missing', category: req.category };
+    return { name: req.name, status: found ? 'received' : 'missing', category: req.category, inputType: req.inputType || 'text', placeholder: req.placeholder || '', options: req.options || [], manualValue: '' };
   });
 }
 
@@ -866,6 +866,22 @@ function MissingDocumentsStep({ requiredDocs, setRequiredDocs, showToast, extrac
     showToast('Document marked as received');
   };
 
+  const handleManualInput = (idx: number, value: string) => {
+    setRequiredDocs((prev: any[]) =>
+      prev.map((doc, i) => (i === idx ? { ...doc, status: 'received', manualValue: value } : doc))
+    );
+    showToast('Value saved ✓');
+  };
+
+  const handleFileUpload = async (idx: number, file: File) => {
+    showToast(`Uploading ${file.name}...`);
+    // For now, mark as received. In production, this would parse the document.
+    setRequiredDocs((prev: any[]) =>
+      prev.map((doc, i) => (i === idx ? { ...doc, status: 'received', manualValue: file.name } : doc))
+    );
+    showToast(`${file.name} uploaded ✓`);
+  };
+
   const handleSendFollowUp = (idx: number) => {
     setRequiredDocs((prev: RequiredDocument[]) =>
       prev.map((doc, i) =>
@@ -921,32 +937,85 @@ function MissingDocumentsStep({ requiredDocs, setRequiredDocs, showToast, extrac
               {catDocs.map((doc: any, idx: number) => {
                 const globalIdx = requiredDocs.indexOf(doc);
                 return (
-                  <div key={idx} className="flex items-center justify-between p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--border)]">
-                    <div className="flex items-center gap-3">
-                      <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs ${
-                        doc.status === 'received' ? 'bg-green-100 text-green-600' :
-                        doc.status === 'requested' ? 'bg-amber-100 text-amber-600' :
-                        'bg-red-100 text-red-600'
-                      }`}>
-                        {doc.status === 'received' ? '✓' : '!'}
+                  <div key={idx} className={`p-3 bg-[var(--bg-primary)] rounded-lg border ${doc.status === 'received' ? 'border-green-200' : 'border-[var(--border)]'}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs flex-shrink-0 ${
+                          doc.status === 'received' ? 'bg-green-100 text-green-600' :
+                          doc.status === 'requested' ? 'bg-amber-100 text-amber-600' :
+                          'bg-red-100 text-red-600'
+                        }`}>
+                          {doc.status === 'received' ? '✓' : '!'}
+                        </div>
+                        <div>
+                          <span className={`text-sm ${doc.status === 'received' ? 'text-[var(--text-primary)]' : 'text-[var(--text-primary)] font-medium'}`}>{doc.name}</span>
+                          {doc.status === 'received' && doc.manualValue && (
+                            <span className="text-xs text-green-600 ml-2">— {doc.manualValue}</span>
+                          )}
+                          {doc.status === 'requested' && doc.requestedDate && (
+                            <span className="text-xs text-[var(--text-muted)] ml-2">Requested {doc.requestedDate}</span>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <span className={`text-sm ${doc.status === 'received' ? 'text-[var(--text-primary)]' : 'text-[var(--text-primary)] font-medium'}`}>{doc.name}</span>
-                        {doc.status === 'requested' && doc.requestedDate && (
-                          <span className="text-xs text-[var(--text-muted)] ml-2">Requested {doc.requestedDate}</span>
-                        )}
-                      </div>
+                      {doc.status !== 'received' && (
+                        <button onClick={() => handleSendFollowUp(globalIdx)}
+                          className="px-3 py-1.5 border border-[var(--border)] text-xs rounded-lg hover:bg-gray-50 flex-shrink-0">
+                          📧 Request
+                        </button>
+                      )}
                     </div>
                     {doc.status !== 'received' && (
-                      <div className="flex gap-2">
-                        <button onClick={() => handleMarkReceived(globalIdx)}
-                          className="px-3 py-1.5 bg-green-600 text-white text-xs rounded-lg hover:bg-green-700">
-                          ✓ Have It
-                        </button>
-                        <button onClick={() => handleSendFollowUp(globalIdx)}
-                          className="px-3 py-1.5 border border-[var(--border)] text-xs rounded-lg hover:bg-gray-50">
-                          Request
-                        </button>
+                      <div className="mt-2 ml-9">
+                        {doc.inputType === 'file' ? (
+                          <div className="flex items-center gap-2">
+                            <label className="flex-1 flex items-center justify-center gap-2 px-4 py-2 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-[var(--accent)] hover:bg-blue-50 transition-all">
+                              <span className="text-sm text-[var(--text-muted)]">📎 Upload document</span>
+                              <input type="file" className="hidden" accept=".pdf,.doc,.docx,.xlsx,.csv,.jpg,.png"
+                                onChange={(e) => {
+                                  if (e.target.files?.[0]) {
+                                    handleFileUpload(globalIdx, e.target.files[0]);
+                                  }
+                                }}
+                              />
+                            </label>
+                          </div>
+                        ) : doc.inputType === 'select' ? (
+                          <select
+                            className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] outline-none"
+                            defaultValue=""
+                            onChange={(e) => {
+                              if (e.target.value) handleManualInput(globalIdx, e.target.value);
+                            }}
+                          >
+                            <option value="" disabled>Select...</option>
+                            {(doc.options || []).map((opt: string) => (
+                              <option key={opt} value={opt}>{opt}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <div className="flex gap-2">
+                            <input
+                              type={doc.inputType === 'number' ? 'number' : 'text'}
+                              placeholder={doc.placeholder || 'Enter value...'}
+                              className="flex-1 px-3 py-2 text-sm border border-gray-300 rounded-lg focus:border-[var(--accent)] focus:ring-1 focus:ring-[var(--accent)] outline-none"
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  const val = (e.target as HTMLInputElement).value;
+                                  if (val) handleManualInput(globalIdx, val);
+                                }
+                              }}
+                            />
+                            <button
+                              onClick={(e) => {
+                                const input = (e.target as HTMLElement).previousElementSibling as HTMLInputElement;
+                                if (input?.value) handleManualInput(globalIdx, input.value);
+                              }}
+                              className="px-4 py-2 bg-[var(--accent)] text-white text-sm rounded-lg hover:bg-[var(--accent-light)]"
+                            >
+                              Save
+                            </button>
+                          </div>
+                        )}
                       </div>
                     )}
                   </div>
