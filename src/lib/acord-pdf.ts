@@ -279,15 +279,8 @@ async function fillMasterAndExtract(formData: any, pageIndices: number[], output
   fillAcord126(form, formData?.acord126);
   fillAcord140(form, formData?.acord140);
   
-  // Flatten so values show in extracted pages
-  form.flatten();
-  
-  // Extract specific pages
-  const outDoc = await PDFDocument.create();
-  const pages = await outDoc.copyPages(masterDoc, pageIndices);
-  pages.forEach(p => outDoc.addPage(p));
-  
-  const outBytes = await outDoc.save();
+  // Save with form fields intact (not flattened) so values show in PDF viewer
+  const outBytes = await masterDoc.save();
   downloadBlob(outBytes, outputName);
 }
 
