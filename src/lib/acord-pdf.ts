@@ -40,8 +40,13 @@ const FORM_PAGES: Record<string, number[]> = {
   '140': [8, 9, 10],
 };
 
+let _fillCount = 0;
+let _failCount = 0;
 function sf(form: any, name: string, value: string) {
-  try { form.getTextField(name).setText(value || ''); } catch {}
+  try { 
+    form.getTextField(name).setText(value || ''); 
+    if (value) _fillCount++;
+  } catch { _failCount++; }
 }
 function sc(form: any, name: string, checked: boolean) {
   try { if (checked) form.getCheckBox(name).check(); else form.getCheckBox(name).uncheck(); } catch {}
@@ -54,9 +59,13 @@ function v(val: any): string {
 }
 
 async function loadMaster(): Promise<ArrayBuffer> {
+  console.log('[ACORD PDF] Fetching master template...');
   const resp = await fetch('/templates/acord-master-template.pdf');
-  if (!resp.ok) throw new Error('Master template not found');
-  return resp.arrayBuffer();
+  console.log('[ACORD PDF] Response:', resp.status, resp.headers.get('content-type'));
+  if (!resp.ok) throw new Error('Master template not found: ' + resp.status);
+  const buf = await resp.arrayBuffer();
+  console.log('[ACORD PDF] Template loaded:', buf.byteLength, 'bytes');
+  return buf;
 }
 
 function downloadBlob(bytes: Uint8Array, name: string) {
@@ -275,9 +284,14 @@ async function fillMasterAndExtract(formData: any, pageIndices: number[], output
   const form = masterDoc.getForm();
   
   // Fill all forms
+  _fillCount = 0; _failCount = 0;
+  console.log('[ACORD PDF] formData keys:', Object.keys(formData || {}));
+  console.log('[ACORD PDF] acord125 data:', formData?.acord125 ? Object.keys(formData.acord125) : 'MISSING');
+  console.log('[ACORD PDF] namedInsured:', formData?.acord125?.namedInsured);
   fillAcord125(form, formData?.acord125);
   fillAcord126(form, formData?.acord126);
   fillAcord140(form, formData?.acord140);
+  console.log('[ACORD PDF] Fields filled:', _fillCount, 'Failed:', _failCount);
   
   // Save with form fields intact (not flattened) so values show in PDF viewer
   const outBytes = await masterDoc.save();
@@ -363,6 +377,7 @@ export async function generateAcord131PDF(data: any): Promise<void> {
 }
 
 export async function generateFormPDF(formNum: string, data: any): Promise<void> {
+  console.log('[ACORD PDF] generateFormPDF called:', formNum, 'data keys:', Object.keys(data || {}));
   switch (formNum) {
     case '125': return generateAcord125PDF(data?.acord125 || data);
     case '126': return generateAcord126PDF(data?.acord126 || data);
