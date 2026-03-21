@@ -1223,26 +1223,7 @@ function AcordFormsStep({
                 {isRealUpload ? 'Generated from your extracted data' : 'Demo forms'}
               </p>
             </div>
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  import('@/lib/acord-pdf').then(m => m.generateAllAcordPDFs(formData));
-                  showToast('Downloading all ACORD PDFs...');
-                }}
-                className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
-              >
-                📦 Download All PDFs
-              </button>
-              <button
-                onClick={() => {
-                  import('@/lib/acord-xml').then(m => m.generateAcordXML(formData));
-                  showToast('Downloading ACORD XML...');
-                }}
-                className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
-              >
-                📋 Export ACORD XML
-              </button>
-              <button
+            <button
                 onClick={handleApproveAll}
                 disabled={formsApproved}
                 className={`px-6 py-3 rounded-lg font-semibold transition-all ${
@@ -1253,7 +1234,6 @@ function AcordFormsStep({
               >
                 {formsApproved ? '✓ Approved' : 'Approve All Forms'}
               </button>
-            </div>
           </div>
         </div>
 
