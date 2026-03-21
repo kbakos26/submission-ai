@@ -1578,7 +1578,7 @@ function SubmissionPackageStep({ showToast, extractedData, isRealUpload, coverLe
   const handleDownloadAll = () => {
     if (acordData) {
       import('@/lib/acord-pdf').then(({ generateAllAcordPDFs }) => {
-        generateAllAcordPDFs(acordData || acordFormData);
+        generateAllAcordPDFs(acordData || acordFormData, Array.from(requiredFormNums).sort());
       });
     }
     handleDownloadCoverLetter();
@@ -1633,7 +1633,7 @@ function SubmissionPackageStep({ showToast, extractedData, isRealUpload, coverLe
       const data = acordData || acordFormData;
       if (!data) { showToast('Forms still generating...'); return; }
       import('@/lib/acord-pdf').then(mod => {
-        mod.generateFormPDF(formNum, acordData);
+        mod.generateFormPDF(formNum, data);
         showToast('ACORD ' + formNum + ' PDF downloaded');
       });
     }
