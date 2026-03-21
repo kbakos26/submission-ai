@@ -292,6 +292,7 @@ function SubmissionFlowContent() {
             isRealUpload={isRealUpload}
             coverLetter={coverLetter}
             setCoverLetter={setCoverLetter}
+            acordData={acordData}
           />
         )}
 
@@ -1075,7 +1076,7 @@ function AcordFormsStep({
   );
 }
 
-function SubmissionPackageStep({ showToast, extractedData, isRealUpload, coverLetter, setCoverLetter }: any) {
+function SubmissionPackageStep({ showToast, extractedData, isRealUpload, coverLetter, setCoverLetter, acordData }: any) {
   const [expandedFolders, setExpandedFolders] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -1109,6 +1110,60 @@ function SubmissionPackageStep({ showToast, extractedData, isRealUpload, coverLe
     setExpandedFolders(prev => (prev.includes(name) ? prev.filter(f => f !== name) : [...prev, name]));
   };
 
+  const handleDownloadCoverLetter = () => {
+    const blob = new Blob([coverLetter || enhancedCoverLetter], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'cover-letter.txt';
+    a.click();
+    URL.revokeObjectURL(url);
+    showToast('Cover letter downloaded');
+  };
+
+  const handleDownloadAll = () => {
+    if (acordData) {
+      import('@/lib/acord-pdf').then(({ generateAllAcordPDFs }) => {
+        generateAllAcordPDFs(acordData);
+      });
+    }
+    handleDownloadCoverLetter();
+    if (acordData) {
+      import('@/lib/acord-xml').then(({ generateAcordXML }) => {
+        generateAcordXML(acordData);
+      });
+    }
+    showToast('Downloading all package files...');
+  };
+
+  const packageFiles = [
+    { name: 'ACORD 125 — Commercial Application', type: 'acord125', icon: '📋' },
+    { name: 'ACORD 126 — General Liability', type: 'acord126', icon: '📋' },
+    { name: 'ACORD 140 — Property Section', type: 'acord140', icon: '📋' },
+    { name: 'ACORD 130 — Workers Comp', type: 'acord130', icon: '📋' },
+    { name: 'Cover Letter', type: 'cover-letter', icon: '✉️' },
+    { name: 'ACORD XML Export', type: 'acord-xml', icon: '📦' },
+  ];
+
+  const handleDownloadFile = (fileType: string) => {
+    if (fileType === 'cover-letter') {
+      handleDownloadCoverLetter();
+    } else if (fileType === 'acord-xml') {
+      import('@/lib/acord-xml').then(({ generateAcordXML }) => {
+        generateAcordXML(acordData || {});
+        showToast('ACORD XML downloaded');
+      });
+    } else if (acordData) {
+      import('@/lib/acord-pdf').then(mod => {
+        if (fileType === 'acord125') mod.generateAcord125PDF(acordData.acord125);
+        else if (fileType === 'acord126') mod.generateAcord126PDF(acordData.acord126);
+        else if (fileType === 'acord140') mod.generateAcord140PDF(acordData.acord140);
+        else if (fileType === 'acord130') mod.generateAcord130PDF(acordData.acord130);
+        showToast(`${fileType.toUpperCase()} PDF downloaded`);
+      });
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-[var(--bg-secondary)] rounded-lg border border-[var(--border)] p-6 shadow-sm">
@@ -1117,57 +1172,32 @@ function SubmissionPackageStep({ showToast, extractedData, isRealUpload, coverLe
             <h2 className="text-2xl font-bold text-[var(--text-primary)]">Submission Package</h2>
             <p className="text-[var(--text-muted)]">Review and download complete submission package</p>
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={() => showToast('Package downloaded')}
-              className="px-6 py-3 bg-[var(--accent)] text-white rounded-lg font-semibold hover:bg-[var(--accent-light)] shadow-md transition-all"
-            >
-              📥 Download Package
-            </button>
-            <button
-              onClick={() => showToast('Package exported to carrier portal')}
-              className="px-6 py-3 border border-[var(--border)] bg-white text-[var(--text-primary)] rounded-lg font-semibold hover:bg-[var(--bg-card-hover)] transition-all"
-            >
-              ↗ Export to Carrier
-            </button>
-          </div>
+          <button
+            onClick={handleDownloadAll}
+            className="px-6 py-3 bg-[var(--accent)] text-white rounded-lg font-semibold hover:bg-[var(--accent-light)] shadow-md transition-all flex items-center gap-2"
+          >
+            📥 Download All Files
+          </button>
         </div>
 
         <div className="space-y-2">
-          {submissionPackageFiles.map((file, idx) => (
-            <div key={idx}>
-              {file.type === 'folder' ? (
-                <>
-                  <button
-                    onClick={() => toggleFolder(file.name)}
-                    className="w-full flex items-center gap-3 p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--border)] hover:bg-[var(--bg-card-hover)] transition-colors"
-                  >
-                    <span className="text-xl">{expandedFolders.includes(file.name) ? '📂' : '📁'}</span>
-                    <span className="font-medium text-[var(--text-primary)]">{file.name}</span>
-                    <span className="ml-auto text-[var(--text-muted)] text-sm">
-                      {file.children?.length} files
-                    </span>
-                  </button>
-                  {expandedFolders.includes(file.name) && file.children && (
-                    <div className="ml-8 mt-2 space-y-2">
-                      {file.children.map((child, childIdx) => (
-                        <div
-                          key={childIdx}
-                          className="flex items-center gap-3 p-3 bg-white rounded border border-[var(--border)]"
-                        >
-                          <span className="text-lg">📄</span>
-                          <span className="text-sm text-[var(--text-secondary)]">{child.name}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="flex items-center gap-3 p-3 bg-[var(--bg-primary)] rounded-lg border border-[var(--border)]">
-                  <span className="text-xl">📄</span>
+          {packageFiles.map((file, idx) => (
+            <div key={idx} className="flex items-center justify-between p-4 bg-[var(--bg-primary)] rounded-lg border border-[var(--border)] hover:border-[var(--accent)]/30 transition-all">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">{file.icon}</span>
+                <div>
                   <span className="font-medium text-[var(--text-primary)]">{file.name}</span>
+                  <span className="text-xs text-[var(--text-muted)] ml-2">
+                    {file.type === 'cover-letter' ? 'TXT' : file.type === 'acord-xml' ? 'XML' : 'PDF'}
+                  </span>
                 </div>
-              )}
+              </div>
+              <button
+                onClick={() => handleDownloadFile(file.type)}
+                className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
+              >
+                ⬇ Download
+              </button>
             </div>
           ))}
         </div>
