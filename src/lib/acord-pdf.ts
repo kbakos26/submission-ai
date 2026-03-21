@@ -95,13 +95,15 @@ function fillAcord125(form: any, data: any) {
   
   // Named Insured #1
   sf(form, 'ACORD_Policy_Insured1_Name', v(data.namedInsured?.name));
-  sf(form, 'ACORD_Policy_Insured1_MailingAddress', v(data.namedInsured?.mailingAddress));
+  const addr = data.namedInsured;
+  const fullAddr = addr?.mailingAddress || [addr?.address, addr?.city, addr?.state, addr?.zip].filter(Boolean).join(', ');
+  sf(form, 'ACORD_Policy_Insured1_MailingAddress', v(fullAddr));
   sf(form, 'ACORD_Policy_Insured1_GLCode', v(data.namedInsured?.glCode));
   sf(form, 'ACORD_Policy_Insured1_SIC', v(data.businessInfo?.sicCode));
   sf(form, 'ACORD_Policy_Insured1_NAICS', v(data.businessInfo?.naicsCode));
   sf(form, 'ACORD_Policy_Insured1_FEINSSN', v(data.namedInsured?.fein));
   sf(form, 'ACORD_Policy_Insured1_PhoneNumber', v(data.namedInsured?.phone));
-  sf(form, 'ACORD_Policy_Insured1_Website', v(data.namedInsured?.website));
+  sf(form, 'ACORD_Policy_Insured1_Website', v(data.namedInsured?.website || data.businessInfo?.website));
   
   // Entity type
   const et = v(data.namedInsured?.entityType).toLowerCase();
@@ -122,28 +124,34 @@ function fillAcord125(form: any, data: any) {
   
   // Nature of business (page 2)
   sf(form, 'ACORD_NatureOfBusiness_Description', v(data.businessInfo?.descriptionOfOperations));
-  sf(form, 'ACORD_NatureOfBusiness_DateStarted', v(data.businessInfo?.dateStarted));
+  sf(form, 'ACORD_NatureOfBusiness_StartDate', v(data.businessInfo?.dateStarted));
   sf(form, 'ACORD_NatureOfOperations_OtherOperations', v(data.businessInfo?.natureOfBusiness));
   
-  // Premises (page 2)
+  // Page 2 — Premises / Locations (up to 4)
   const locs = data.premisesInfo || data.locations || [];
-  if (locs[0]) {
-    sf(form, 'ACORD_Premises_1_Address', v(locs[0].address || locs[0].street));
-    sf(form, 'ACORD_Premises_1_City', v(locs[0].city));
-    sf(form, 'ACORD_Premises_1_State', v(locs[0].state));
-    sf(form, 'ACORD_Premises_1_Zip', v(locs[0].zip));
-    sf(form, 'ACORD_Premises_1_FullTimeEmployees', v(locs[0].fullTimeEmployees));
-    sf(form, 'ACORD_Premises_1_PartTimeEmployees', v(locs[0].partTimeEmployees));
-    sf(form, 'ACORD_Premises_1_AnnualRevenue', m(locs[0].annualRevenues || locs[0].revenue));
-    sf(form, 'ACORD_Premises_1_TotalArea', v(locs[0].sqFootage || locs[0].totalArea));
+  for (let i = 0; i < Math.min(locs.length, 4); i++) {
+    const loc = locs[i];
+    const n = i + 1;
+    sf(form, `ACORD_Location${n}_LocationNumber`, v(loc.number || n));
+    sf(form, `ACORD_Location${n}_BuildingNumber`, v(loc.buildingNumber || '1'));
+    sf(form, `ACORD_Location${n}_Street`, v(loc.address || loc.street));
+    sf(form, `ACORD_Location${n}_City`, v(loc.city));
+    sf(form, `ACORD_Location${n}_State`, v(loc.state));
+    sf(form, `ACORD_Location${n}_ZIP`, v(loc.zip));
+    sf(form, `ACORD_Location${n}_County`, v(loc.county));
+    sf(form, `ACORD_Location${n}_Employees_FullTime`, v(loc.fullTimeEmployees));
+    sf(form, `ACORD_Location${n}_Employees_PartTime`, v(loc.partTimeEmployees));
+    sf(form, `ACORD_Location${n}_AnnualRevenue`, m(loc.annualRevenues || loc.revenue));
+    sf(form, `ACORD_Location${n}_BuildingArea`, v(loc.sqFootage || loc.totalArea || loc.buildingArea));
+    sf(form, `ACORD_Location${n}_Description`, v(loc.description));
   }
   
   // Prior carrier (page 3-4)
-  sf(form, 'ACORD_PriorCarrier_1_GLCarrier', v(data.priorCarrier?.name));
-  sf(form, 'ACORD_PriorCarrier_1_GLPolicyNumber', v(data.priorCarrier?.policyNumber));
-  sf(form, 'ACORD_PriorCarrier_1_GLPremium', m(data.priorCarrier?.totalPremium));
-  sf(form, 'ACORD_PriorCarrier_1_GLEffectiveDate', v(data.priorCarrier?.effectiveDate));
-  sf(form, 'ACORD_PriorCarrier_1_GLExpirationDate', v(data.priorCarrier?.expirationDate));
+  sf(form, 'ACORD_PriorCarrier_1_AutoCarrier', v(data.priorCarrier?.name));
+  sf(form, 'ACORD_PriorCarrier_1_AutoPolicyNumber', v(data.priorCarrier?.policyNumber));
+  sf(form, 'ACORD_PriorCarrier_1_AutoPremium', m(data.priorCarrier?.totalPremium));
+  sf(form, 'ACORD_PriorCarrier_1_AutoEffectiveDate', v(data.priorCarrier?.effectiveDate));
+  sf(form, 'ACORD_PriorCarrier_1_AutoExpirationDate', v(data.priorCarrier?.expirationDate));
   
   // Loss history (page 4)
   const losses = data.lossHistory || [];
@@ -160,6 +168,12 @@ function fillAcord125(form: any, data: any) {
   let totalLosses = 0;
   losses.forEach((l: any) => { totalLosses += Number(l.totalIncurred || 0); });
   sf(form, 'ACORD_LossHistory_TotalLosses', m(totalLosses));
+
+  // Page 3 — Remarks
+  sf(form, 'ACORD_General_Remarks', v(data.remarks || data.generalRemarks));
+
+  // Page 4 — Signatures
+  sf(form, 'ACORD_Signatures_Applicant_Date', new Date().toLocaleDateString());
 }
 
 function fillAcord126(form: any, data: any) {
@@ -192,9 +206,9 @@ function fillAcord126(form: any, data: any) {
   const cls = data.classifications || (data.classification ? [data.classification] : []);
   if (cls[0]) {
     sf(form, 'GeneralLiability_Hazard_LocationProducerIdentifier_A', '1');
-    sf(form, 'GeneralLiability_Hazard_ClassificationDescription_A', v(cls[0].description));
+    sf(form, 'GeneralLiability_Hazard_Classification_A', v(cls[0].description));
     sf(form, 'GeneralLiability_Hazard_ClassCode_A', v(cls[0].code));
-    sf(form, 'GeneralLiability_Hazard_PremiumBasisAmount_A', m(cls[0].grossReceipts || cls[0].exposure));
+    sf(form, 'GeneralLiability_Hazard_PremisesOperationsPremiumAmount_A', m(cls[0].grossReceipts || cls[0].exposure));
   }
 }
 
@@ -232,14 +246,14 @@ function fillAcord140(form: any, data: any) {
     sf(form, 'CommercialProperty_Premises_DeductibleAmount_B', m(data.deductible));
     sf(form, 'CommercialProperty_Premises_SubjectOfInsuranceCode_C', 'Bus Income');
     sf(form, 'CommercialProperty_Premises_LimitAmount_C', m(locs[0].biLimit));
-    sf(form, 'CommercialStructure_ConstructionTypeCode_A', v(locs[0].construction));
-    sf(form, 'CommercialStructure_NumberOfStories_A', v(locs[0].stories));
-    sf(form, 'CommercialStructure_NumberOfBasements_A', v(locs[0].basements || '0'));
-    sf(form, 'CommercialStructure_YearBuilt_A', v(locs[0].yearBuilt));
-    sf(form, 'CommercialStructure_TotalArea_A', v(locs[0].sqFootage));
-    sf(form, 'CommercialStructure_RoofTypeCode_A', v(locs[0].roofType));
-    sf(form, 'CommercialStructure_ProtectionClassCode_A', v(locs[0].protectionClass));
-    sf(form, 'CommercialStructure_SprinklerPercent_A', v(locs[0].sprinklered ? '100' : locs[0].sprinklerPercentage || '0'));
+    sf(form, 'Construction_ConstructionCode_A', v(locs[0].construction));
+    sf(form, 'Construction_StoreyCount_A', v(locs[0].stories));
+    sf(form, 'Construction_BasementCount_A', v(locs[0].basements || '0'));
+    sf(form, 'CommercialStructure_BuiltYear_A', v(locs[0].yearBuilt));
+    sf(form, 'Construction_BuildingArea_A', v(locs[0].sqFootage));
+    sf(form, 'Construction_RoofMaterialCode_A', v(locs[0].roofType));
+    sf(form, 'BuildingFireProtection_ProtectionClassCode_A', v(locs[0].protectionClass));
+    sf(form, 'BuildingFireProtection_Alarm_SprinklerPercent_A', v(locs[0].sprinklered ? '100' : locs[0].sprinklerPercentage || '0'));
   }
   if (locs[1]) {
     sf(form, 'CommercialStructure_Location_ProducerIdentifier_B', v(locs[1].number || '2'));
@@ -248,9 +262,9 @@ function fillAcord140(form: any, data: any) {
     sf(form, 'CommercialProperty_Premises_LimitAmount_G', m(locs[1].buildingValue));
     sf(form, 'CommercialProperty_Premises_SubjectOfInsuranceCode_H', 'Contents/BPP');
     sf(form, 'CommercialProperty_Premises_LimitAmount_H', m(locs[1].contentsValue));
-    sf(form, 'CommercialStructure_ConstructionTypeCode_B', v(locs[1].construction));
-    sf(form, 'CommercialStructure_YearBuilt_B', v(locs[1].yearBuilt));
-    sf(form, 'CommercialStructure_TotalArea_B', v(locs[1].sqFootage));
+    sf(form, 'Construction_ConstructionCode_B', v(locs[1].construction));
+    sf(form, 'CommercialStructure_BuiltYear_B', v(locs[1].yearBuilt));
+    sf(form, 'Construction_BuildingArea_B', v(locs[1].sqFootage));
   }
 }
 
