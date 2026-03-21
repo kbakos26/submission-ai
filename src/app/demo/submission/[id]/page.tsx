@@ -55,6 +55,7 @@ function SubmissionFlowContent() {
   const [formsApproved, setFormsApproved] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [coverLetter, setCoverLetter] = useState<string>('');
+  const [acordData, setAcordData] = useState<any>(null);
 
   // Persist critical state to sessionStorage so it survives step navigation and refresh
   useEffect(() => {
@@ -72,6 +73,7 @@ function SubmissionFlowContent() {
         if (parsed.parsedResults?.length > 0) setParsedResults(parsed.parsedResults);
         if (parsed.isRealUpload) setIsRealUpload(true);
         if (parsed.coverLetter) setCoverLetter(parsed.coverLetter);
+        if (parsed.acordData) setAcordData(parsed.acordData);
       }
     } catch (e) {
       sessionStorage.removeItem('submission-ai-state');
@@ -86,11 +88,11 @@ function SubmissionFlowContent() {
           parsedResults: parsedResults.map(r => ({ documentType: r.documentType, documentLabel: r.documentLabel, extractedFields: r.extractedFields, fieldCount: r.fieldCount })),
           isRealUpload,
           coverLetter,
+          acordData,
         }));
       }
     } catch (e) {}
-  }, [extractedData, parsedResults, isRealUpload, coverLetter]);
-  const [acordData, setAcordData] = useState<any>(null);
+  }, [extractedData, parsedResults, isRealUpload, coverLetter, acordData]);
 
   const submission = dashboardSubmissions.find(s => s.id === submissionId);
 
@@ -142,6 +144,7 @@ function SubmissionFlowContent() {
         parsedResults: parsedResults.map((r: any) => ({ documentType: r.documentType, documentLabel: r.documentLabel, extractedFields: r.extractedFields, fieldCount: r.fieldCount })),
         isRealUpload,
         coverLetter,
+        acordData,
       }));
     } catch (e) {}
     const nextIndex = currentStep;
