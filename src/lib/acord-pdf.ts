@@ -1,4 +1,4 @@
-import { PDFDocument } from 'pdf-lib';
+import { PDFDocument, StandardFonts } from 'pdf-lib';
 
 // ============================================================
 // ACORD PDF Filler — Uses full master template (11 pages)
@@ -293,17 +293,11 @@ async function fillMasterAndExtract(formData: any, pageIndices: number[], output
   fillAcord140(form, formData?.acord140);
   console.log('[ACORD PDF] Fields filled:', _fillCount, 'Failed:', _failCount);
   
-  // Generate appearance streams so values render in all PDF viewers
-  try {
-    form.updateFieldAppearances();
-    console.log('[ACORD PDF] Appearance streams updated');
-  } catch(e) {
-    console.warn('[ACORD PDF] updateFieldAppearances warning:', e);
-  }
-  
-  // Flatten to bake values into page content (visible everywhere, no form fields)
+  // Embed standard font and generate appearance streams
+  const font = await masterDoc.embedFont(StandardFonts.Helvetica);
+  form.updateFieldAppearances(font);
   form.flatten();
-  console.log('[ACORD PDF] Form flattened');
+  console.log('[ACORD PDF] Fields filled:', _fillCount, '| Flattened with Helvetica font');
   
   const outBytes = await masterDoc.save();
   downloadBlob(outBytes, outputName);
@@ -329,7 +323,8 @@ async function fillFromTemplate(templateName: string, fillFn: (form: any) => voi
   const doc = await PDFDocument.load(bytes);
   const form = doc.getForm();
   fillFn(form);
-  try { form.updateFieldAppearances(); } catch(e) { console.warn('Appearance update warning:', e); }
+  const font = await doc.embedFont(StandardFonts.Helvetica);
+  form.updateFieldAppearances(font);
   form.flatten();
   const out = await doc.save();
   downloadBlob(out, outputName);
