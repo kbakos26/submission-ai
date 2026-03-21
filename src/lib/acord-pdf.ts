@@ -1,500 +1,419 @@
-import jsPDF from 'jspdf';
+import { PDFDocument } from 'pdf-lib';
 
-const FONT = 'helvetica';
-const PAGE_W = 210;
-const MARGIN = 8;
-const FORM_W = PAGE_W - MARGIN * 2;
-const BLACK = [0, 0, 0] as const;
-const DARK = [30, 30, 30] as const;
-const GRAY_LABEL = [80, 80, 80] as const;
-const BLUE_DARK = [0, 51, 102] as const;
-const WHITE = [255, 255, 255] as const;
-const LIGHT_BG = [245, 245, 248] as const;
+// ============================================================
+// ACORD PDF Filler — Uses real ACORD form templates
+// Fills actual AcroForm fields in authentic ACORD PDFs
+// ============================================================
 
-function setColor(doc: jsPDF, rgb: readonly [number, number, number]) { doc.setTextColor(rgb[0], rgb[1], rgb[2]); }
-function setFill(doc: jsPDF, rgb: readonly [number, number, number]) { doc.setFillColor(rgb[0], rgb[1], rgb[2]); }
-function checkPage(doc: jsPDF, y: number, needed = 30): number { if (y + needed > 280) { doc.addPage(); return 15; } return y; }
-function val(v: any, fb = ''): string { return v === null || v === undefined ? fb : String(v); }
-function money(v: any): string { const n = Number(v); return (!n && n !== 0) ? '$0' : '$' + n.toLocaleString('en-US'); }
-
-function drawFormTitle(doc: jsPDF, num: string, title: string, sub?: string): number {
-  let y = 10;
-  setFill(doc, DARK); doc.rect(MARGIN, y, FORM_W, 10, 'F');
-  doc.setFontSize(8); doc.setFont(FONT, 'bold'); setColor(doc, WHITE);
-  doc.text('ACORD ' + num + ' (2016/03)', MARGIN + 2, y + 4);
-  doc.setFontSize(11); doc.text(title, PAGE_W / 2, y + 4, { align: 'center' });
-  if (sub) { doc.setFontSize(8); doc.text(sub, PAGE_W / 2, y + 8, { align: 'center' }); }
-  doc.setFontSize(7); doc.text('DATE: ' + new Date().toLocaleDateString(), MARGIN + FORM_W - 2, y + 4, { align: 'right' });
-  setColor(doc, BLACK); return y + 14;
+async function loadTemplate(name: string): Promise<ArrayBuffer> {
+  const resp = await fetch(`/templates/${name}`);
+  if (!resp.ok) throw new Error(`Failed to load template: ${name}`);
+  return resp.arrayBuffer();
 }
 
-function drawSectionBar(doc: jsPDF, title: string, y: number): number {
-  y = checkPage(doc, y, 14);
-  setFill(doc, DARK); doc.rect(MARGIN, y, FORM_W, 6, 'F');
-  doc.setFontSize(7.5); doc.setFont(FONT, 'bold'); setColor(doc, WHITE);
-  doc.text(title.toUpperCase(), MARGIN + 2, y + 4.2);
-  setColor(doc, BLACK); return y + 7;
-}
-
-function drawFieldGrid(doc: jsPDF, fields: { label: string; value: string; span?: number }[], y: number, cols = 3): number {
-  y = checkPage(doc, y, 14);
-  const cellH = 10, colW = FORM_W / cols;
-  let col = 0;
-  for (const f of fields) {
-    const span = f.span || 1, w = colW * span, x = MARGIN + col * colW;
-    doc.setDrawColor(180, 180, 180); doc.setLineWidth(0.3); doc.rect(x, y, w, cellH);
-    doc.setFontSize(5.5); doc.setFont(FONT, 'normal'); setColor(doc, GRAY_LABEL);
-    doc.text(f.label, x + 1.5, y + 3.5);
-    doc.setFontSize(8); doc.setFont(FONT, 'bold'); setColor(doc, BLUE_DARK);
-    const maxW = w - 3;
-    const txt = f.value.length > Math.floor(maxW / 1.8) ? f.value.substring(0, Math.floor(maxW / 1.8)) + '...' : f.value;
-    doc.text(txt, x + 1.5, y + 8);
-    col += span;
-    if (col >= cols) { col = 0; y += cellH; y = checkPage(doc, y, cellH + 4); }
+function setField(form: any, name: string, value: string) {
+  try {
+    const field = form.getTextField(name);
+    field.setText(value || '');
+  } catch {
+    // Field doesn't exist in this template version — skip silently
   }
-  if (col > 0) y += cellH;
-  setColor(doc, BLACK); doc.setFont(FONT, 'normal'); return y + 1;
 }
 
-function drawCheckItem(doc: jsPDF, label: string, checked: boolean, x: number, y: number): void {
-  doc.setFontSize(7); doc.setFont(FONT, 'normal'); setColor(doc, BLACK);
-  doc.text(checked ? '☑' : '☐', x, y); doc.text(label, x + 4, y);
+function setCheck(form: any, name: string, checked: boolean) {
+  try {
+    const field = form.getCheckBox(name);
+    if (checked) field.check(); else field.uncheck();
+  } catch {
+    // Skip
+  }
 }
 
-function drawTable(doc: jsPDF, headers: string[], rows: string[][], y: number, colWidths: number[]): number {
-  y = checkPage(doc, y, 20);
-  const rowH = 6;
-  setFill(doc, LIGHT_BG); doc.rect(MARGIN, y, FORM_W, rowH, 'F');
-  doc.setFontSize(6); doc.setFont(FONT, 'bold'); setColor(doc, DARK);
-  let hx = MARGIN + 1;
-  headers.forEach((h, i) => { doc.text(h, hx, y + 4); hx += colWidths[i]; });
-  doc.setDrawColor(160, 160, 160); doc.setLineWidth(0.3);
-  doc.line(MARGIN, y + rowH, MARGIN + FORM_W, y + rowH); y += rowH;
-  doc.setFont(FONT, 'normal'); doc.setFontSize(7); setColor(doc, BLACK);
-  for (const row of rows) {
-    y = checkPage(doc, y, rowH + 2);
-    let rx = MARGIN + 1;
-    row.forEach((cell, i) => {
-      const mc = Math.floor(colWidths[i] / 2);
-      doc.text(cell.length > mc ? cell.substring(0, mc) + '..' : cell, rx, y + 4);
-      rx += colWidths[i];
+function money(v: any): string {
+  const n = Number(v);
+  if (!n && n !== 0) return '';
+  return n.toLocaleString('en-US');
+}
+
+function val(v: any): string {
+  if (v === null || v === undefined) return '';
+  return String(v);
+}
+
+async function fillAndDownload(templateName: string, fillFn: (form: any) => void, outputName: string) {
+  const templateBytes = await loadTemplate(templateName);
+  const pdfDoc = await PDFDocument.load(templateBytes);
+  const form = pdfDoc.getForm();
+  
+  fillFn(form);
+  
+  // Flatten so fields show as regular text (optional — comment out to keep editable)
+  // form.flatten();
+  
+  const pdfBytes = await pdfDoc.save();
+  const blob = new Blob([pdfBytes as BlobPart], { type: 'application/pdf' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = outputName;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ===== ACORD 125 — Commercial Insurance Application =====
+export async function generateAcord125PDF(data: any): Promise<void> {
+  if (!data) return;
+  await fillAndDownload('acord-125-template.pdf', (form) => {
+    // Date
+    setField(form, 'ACORD_CurrentDate', new Date().toLocaleDateString());
+    
+    // Agency
+    setField(form, 'ACORD_AgencyName', val(data.agency?.name));
+    setField(form, 'ACORD_CarrierName', val(data.agency?.carrier));
+    setField(form, 'ACORD_NAICCode', val(data.agency?.naicCode));
+    setField(form, 'ACORD_PolicyNumber', val(data.agency?.policyNumber));
+    setField(form, 'ACORD_ProducerContact', val(data.agency?.contact));
+    setField(form, 'ACORD_ProducerPhoneNumber', val(data.agency?.phone));
+    setField(form, 'ACORD_ProducerFaxNumber', val(data.agency?.fax));
+    setField(form, 'ACORD_ProducerEmailAddress', val(data.agency?.email));
+    setField(form, 'ACORD_ProducerCode', val(data.agency?.producerCode));
+    
+    // Transaction status
+    setCheck(form, 'ACORD_Transaction_Quote', true);
+    
+    // Policy info
+    setField(form, 'ACORD_Policy_EffectiveDate', val(data.policyInfo?.effectiveDate));
+    setField(form, 'ACORD_Policy_ExpirationDate', val(data.policyInfo?.expirationDate));
+    setField(form, 'ACORD_Policy_PaymentPlan', val(data.policyInfo?.paymentPlan));
+    setField(form, 'ACORD_Policy_PaymentMethod', val(data.policyInfo?.paymentMethod));
+    setField(form, 'ACORD_Policy_Audit', val(data.policyInfo?.audit || 'Annual'));
+    setField(form, 'ACORD_Policy_Deposit', money(data.policyInfo?.deposit));
+    setField(form, 'ACORD_Policy_MinimumPremium', money(data.policyInfo?.minimumPremium));
+    setField(form, 'ACORD_Policy_Premium', money(data.policyInfo?.totalPremium || data.priorCarrier?.totalPremium));
+    
+    // Lines of business
+    setCheck(form, 'ACORD_LOB_GL', true);
+    setCheck(form, 'ACORD_LOB_Property', true);
+    setCheck(form, 'ACORD_LOB_Auto', !!data.linesRequested?.some((l: any) => l.line?.toLowerCase().includes('auto')));
+    setCheck(form, 'ACORD_LOB_Umbrella', !!data.linesRequested?.some((l: any) => l.line?.toLowerCase().includes('umbrella')));
+    setCheck(form, 'ACORD_LOB_WC', !!data.linesRequested?.some((l: any) => l.line?.toLowerCase().includes('worker')));
+    setCheck(form, 'ACORD_LOB_Crime', !!data.linesRequested?.some((l: any) => l.line?.toLowerCase().includes('crime')));
+    setCheck(form, 'ACORD_LOB_LiquorLiability', !!data.linesRequested?.some((l: any) => l.line?.toLowerCase().includes('liquor')));
+    
+    // LOB premiums
+    const lobPremiumFields: Record<string, string> = {
+      'ACORD_LOB_GL_Premium': 'general liability',
+      'ACORD_LOB_Property_Premium': 'property',
+      'ACORD_LOB_Auto_Premium': 'auto',
+      'ACORD_LOB_Umbrella_Premium': 'umbrella',
+      'ACORD_LOB_WC_Premium': 'worker',
+      'ACORD_LOB_LiquorLiability_Premium': 'liquor',
+    };
+    for (const [field, keyword] of Object.entries(lobPremiumFields)) {
+      const line = data.linesRequested?.find((l: any) => l.line?.toLowerCase().includes(keyword));
+      if (line) setField(form, field, money(line.currentPremium));
+    }
+    
+    // Named Insured (First)
+    setField(form, 'ACORD_Insured_Name_1', val(data.namedInsured?.name));
+    setField(form, 'ACORD_Insured_MailAddress_1', val(data.namedInsured?.mailingAddress));
+    setField(form, 'ACORD_Insured_GLCode_1', val(data.namedInsured?.glCode));
+    setField(form, 'ACORD_Insured_SICCode_1', val(data.namedInsured?.sicCode));
+    setField(form, 'ACORD_Insured_NAICS_1', val(data.businessInfo?.naicsCode));
+    setField(form, 'ACORD_Insured_FEIN_1', val(data.namedInsured?.fein));
+    setField(form, 'ACORD_Insured_Phone_1', val(data.namedInsured?.phone));
+    setField(form, 'ACORD_Insured_Website_1', val(data.namedInsured?.website));
+    
+    // Entity type
+    const et = val(data.namedInsured?.entityType).toLowerCase();
+    setCheck(form, 'ACORD_Insured_Corporation_1', et.includes('corp'));
+    setCheck(form, 'ACORD_Insured_LLC_1', et.includes('llc'));
+    setCheck(form, 'ACORD_Insured_Partnership_1', et.includes('partner'));
+    setCheck(form, 'ACORD_Insured_Individual_1', et.includes('individual') || et.includes('sole'));
+    setCheck(form, 'ACORD_Insured_JointVenture_1', et.includes('joint'));
+    setCheck(form, 'ACORD_Insured_SubchapterS_1', et.includes('sub'));
+    
+    // Contact info
+    setField(form, 'ACORD_Contact1_Name', val(data.contact?.name || data.namedInsured?.contactName));
+    setField(form, 'ACORD_Contact1_Type', val(data.contact?.type || 'Owner'));
+    setField(form, 'ACORD_Contact1_PrimaryPhoneNumber', val(data.contact?.phone || data.namedInsured?.phone));
+    setField(form, 'ACORD_Contact1_PrimaryEmailAddress', val(data.contact?.email || data.namedInsured?.email));
+    
+    // Nature of business
+    setField(form, 'ACORD_NatureOfBusiness_Description', val(data.businessInfo?.descriptionOfOperations));
+    setField(form, 'ACORD_NatureOfBusiness_DateStarted', val(data.businessInfo?.dateStarted));
+    setField(form, 'ACORD_NatureOfOperations_OtherOperations', val(data.businessInfo?.natureOfBusiness));
+    
+    // Premises (Location 1)
+    const loc1 = (data.premisesInfo || data.locations || [])[0];
+    if (loc1) {
+      setField(form, 'ACORD_Premises_1_Address', val(loc1.address || loc1.street));
+      setField(form, 'ACORD_Premises_1_City', val(loc1.city));
+      setField(form, 'ACORD_Premises_1_State', val(loc1.state));
+      setField(form, 'ACORD_Premises_1_Zip', val(loc1.zip));
+      setField(form, 'ACORD_Premises_1_FullTimeEmpl', val(loc1.fullTimeEmployees));
+      setField(form, 'ACORD_Premises_1_PartTimeEmpl', val(loc1.partTimeEmployees));
+      setField(form, 'ACORD_Premises_1_AnnualRevenue', money(loc1.annualRevenues || loc1.revenue));
+      setField(form, 'ACORD_Premises_1_TotalArea', val(loc1.sqFootage || loc1.totalArea));
+      setField(form, 'ACORD_Premises_1_Description', val(loc1.description || loc1.operations));
+    }
+    
+    // Prior carrier
+    setField(form, 'ACORD_PriorCarrier_1_GLCarrier', val(data.priorCarrier?.name));
+    setField(form, 'ACORD_PriorCarrier_1_GLPolicyNumber', val(data.priorCarrier?.policyNumber));
+    setField(form, 'ACORD_PriorCarrier_1_GLPremium', money(data.priorCarrier?.totalPremium));
+    setField(form, 'ACORD_PriorCarrier_1_GLEffectiveDate', val(data.priorCarrier?.effectiveDate));
+    setField(form, 'ACORD_PriorCarrier_1_GLExpirationDate', val(data.priorCarrier?.expirationDate));
+    
+    // Loss history
+    const losses = data.lossHistory || [];
+    setField(form, 'ACORD_LossHistory_NumberOfYears', '5');
+    let totalLosses = 0;
+    losses.forEach((l: any, i: number) => {
+      if (i >= 5) return; // max 5 loss entries on form
+      const idx = i + 1;
+      setField(form, `ACORD_LossHistory_${idx}_LOB`, val(l.line));
+      setField(form, `ACORD_LossHistory_${idx}_Description`, val(l.description));
+      setField(form, `ACORD_LossHistory_${idx}_OccurrenceDate`, val(l.occurrenceDate));
+      setField(form, `ACORD_LossHistory_${idx}_ClaimDate`, val(l.claimDate));
+      setField(form, `ACORD_LossHistory_${idx}_AmountPaid`, money(l.amountPaid));
+      setField(form, `ACORD_LossHistory_${idx}_AmountReserved`, money(l.amountReserved));
+      totalLosses += Number(l.totalIncurred || 0);
     });
-    doc.setDrawColor(210, 210, 210); doc.line(MARGIN, y + rowH, MARGIN + FORM_W, y + rowH); y += rowH;
-  }
-  return y + 2;
+    setField(form, 'ACORD_LossHistory_TotalLosses', money(totalLosses));
+    
+    // General info Y/N questions
+    setCheck(form, 'ACORD_General_IsSubsidiary_No', true);
+    setCheck(form, 'ACORD_General_HasSubsidiaries_No', true);
+    setCheck(form, 'ACORD_General_Flammables_No', true);
+    setCheck(form, 'ACORD_General_DeclinedCancelled_No', true);
+  }, 'ACORD-125-Commercial-Application.pdf');
 }
 
-function drawFooter(doc: jsPDF, num: string) {
-  const pages = doc.getNumberOfPages();
-  for (let i = 1; i <= pages; i++) {
-    doc.setPage(i); doc.setFontSize(6); doc.setFont(FONT, 'normal'); setColor(doc, GRAY_LABEL);
-    doc.text('ACORD ' + num + ' (2016/03)', MARGIN, 289);
-    doc.text('Page ' + i + ' of ' + pages, PAGE_W / 2, 289, { align: 'center' });
-    doc.text('© ACORD CORPORATION — Generated by SubmissionAI', MARGIN + FORM_W, 289, { align: 'right' });
-  }
-}
-
-// ===== ACORD 125 =====
-export function generateAcord125PDF(data: any): void {
+// ===== ACORD 126 — Commercial General Liability =====
+export async function generateAcord126PDF(data: any): Promise<void> {
   if (!data) return;
+  await fillAndDownload('acord-126-template.pdf', (form) => {
+    // Header
+    setField(form, 'Form_CompletionDate_A', new Date().toLocaleDateString());
+    setField(form, 'Producer_FullName_A', val(data.agency?.name));
+    setField(form, 'Insurer_FullName_A', val(data.agency?.carrier));
+    setField(form, 'Insurer_NAICCode_A', val(data.agency?.naicCode));
+    setField(form, 'Policy_PolicyNumberIdentifier_A', val(data.policyNumber));
+    setField(form, 'Policy_EffectiveDate_A', val(data.effectiveDate));
+    setField(form, 'NamedInsured_FullName_A', val(data.namedInsured));
+    
+    // Coverage type
+    setCheck(form, 'GeneralLiability_CoverageIndicator_A', true);
+    setCheck(form, 'GeneralLiability_OccurrenceIndicator_A', data.coverageType !== 'claims-made');
+    setCheck(form, 'GeneralLiability_ClaimsMadeIndicator_A', data.coverageType === 'claims-made');
+    
+    // Limits
+    setField(form, 'GeneralLiability_GeneralAggregate_LimitAmount_A', money(data.limitsRequested?.generalAggregate));
+    setField(form, 'GeneralLiability_ProductsAndCompletedOperations_AggregateLimitAmount_A', money(data.limitsRequested?.productsCompletedOpsAggregate));
+    setField(form, 'GeneralLiability_PersonalAndAdvertisingInjury_LimitAmount_A', money(data.limitsRequested?.personalAdvertisingInjury));
+    setField(form, 'GeneralLiability_EachOccurrence_LimitAmount_A', money(data.limitsRequested?.eachOccurrence));
+    setField(form, 'GeneralLiability_FireDamageRentedPremises_EachOccurrenceLimitAmount_A', money(data.limitsRequested?.damageToRentedPremises));
+    setField(form, 'GeneralLiability_MedicalExpense_EachPersonLimitAmount_A', money(data.limitsRequested?.medicalExpense));
+    setField(form, 'GeneralLiability_EmployeeBenefits_LimitAmount_A', money(data.limitsRequested?.employeeBenefits));
+    
+    // Aggregate applies per
+    setField(form, 'GeneralLiability_GeneralAggregate_LimitAppliesToCode_A', 'Policy');
+    
+    // Deductibles
+    setField(form, 'GeneralLiability_PropertyDamage_DeductibleAmount_A', money(data.deductibles?.propertyDamage));
+    setField(form, 'GeneralLiability_BodilyInjury_DeductibleAmount_A', money(data.deductibles?.bodilyInjury));
+    
+    // Premiums
+    setField(form, 'GeneralLiability_PremisesOperations_PremiumAmount_A', money(data.premiums?.premisesOperations));
+    setField(form, 'GeneralLiability_Products_PremiumAmount_A', money(data.premiums?.products));
+    
+    // Classification / Schedule of Hazards
+    const cls = data.classifications || (data.classification ? [data.classification] : []);
+    if (cls[0]) {
+      setField(form, 'GeneralLiability_Hazard_LocationProducerIdentifier_A', '1');
+      setField(form, 'GeneralLiability_Hazard_ClassificationDescription_A', val(cls[0].description));
+      setField(form, 'GeneralLiability_Hazard_ClassCode_A', val(cls[0].code));
+      setField(form, 'GeneralLiability_Hazard_PremiumBasisAmount_A', money(cls[0].grossReceipts || cls[0].exposure));
+      setField(form, 'GeneralLiability_Hazard_HazardProducerIdentifier_A', val(cls[0].hazardId || '1'));
+    }
+    
+    // Liquor liability
+    if (data.liquorLiability?.included) {
+      setField(form, 'GeneralLiability_Liquor_ReceiptsAmount_A', money(data.liquorLiability.liquorReceipts));
+    }
+  }, 'ACORD-126-General-Liability.pdf');
+}
+
+// ===== ACORD 140 — Property Section =====
+export async function generateAcord140PDF(data: any): Promise<void> {
+  if (!data) return;
+  await fillAndDownload('acord-140-template.pdf', (form) => {
+    // Header
+    setField(form, 'Form_CompletionDate_A', new Date().toLocaleDateString());
+    setField(form, 'Producer_FullName_A', val(data.agency?.name));
+    setField(form, 'Insurer_FullName_A', val(data.agency?.carrier));
+    setField(form, 'Insurer_NAICCode_A', val(data.agency?.naicCode));
+    setField(form, 'Policy_PolicyNumberIdentifier_A', val(data.policyNumber));
+    setField(form, 'Policy_EffectiveDate_A', val(data.effectiveDate));
+    setField(form, 'NamedInsured_FullName_A', val(data.namedInsured));
+    
+    // Blanket summary
+    setField(form, 'CommercialProperty_Summary_BlanketNumberIdentifier_A', '1');
+    setField(form, 'CommercialProperty_Summary_BlanketLimitAmount_A', money(data.totalBuildingValue));
+    setField(form, 'CommercialCoverage_Summary_BlanketTypeDescription_A', 'Building');
+    setField(form, 'CommercialProperty_Summary_BlanketNumberIdentifier_B', '2');
+    setField(form, 'CommercialProperty_Summary_BlanketLimitAmount_B', money(data.totalContentsValue));
+    setField(form, 'CommercialCoverage_Summary_BlanketTypeDescription_B', 'Contents / BPP');
+    
+    // Location 1
+    const locs = data.locations || [];
+    if (locs[0]) {
+      const loc = locs[0];
+      // Location/Building identifiers
+      setField(form, 'CommercialStructure_Location_ProducerIdentifier_A', val(loc.number || '1'));
+      setField(form, 'CommercialStructure_Building_ProducerIdentifier_A', '1');
+      setField(form, 'CommercialStructure_PhysicalAddress_LineOne_A', val(loc.address));
+      
+      // Subject of insurance rows (A=Building, B=Contents, C=BI)
+      setField(form, 'CommercialProperty_Premises_SubjectOfInsuranceCode_A', 'Building');
+      setField(form, 'CommercialProperty_Premises_LimitAmount_A', money(loc.buildingValue));
+      setField(form, 'CommercialProperty_Premises_CoinsurancePercent_A', val(loc.coinsurance || data.coinsurance || '80'));
+      setField(form, 'CommercialProperty_Premises_ValuationCode_A', val(data.valuation || 'RC'));
+      setField(form, 'CommercialProperty_Premises_CauseOfLossCode_A', val(data.causesOfLoss || 'Special'));
+      setField(form, 'CommercialProperty_Premises_DeductibleAmount_A', money(data.deductible));
+      
+      setField(form, 'CommercialProperty_Premises_SubjectOfInsuranceCode_B', 'Contents/BPP');
+      setField(form, 'CommercialProperty_Premises_LimitAmount_B', money(loc.contentsValue));
+      setField(form, 'CommercialProperty_Premises_CoinsurancePercent_B', val(loc.coinsurance || data.coinsurance || '80'));
+      setField(form, 'CommercialProperty_Premises_ValuationCode_B', val(data.valuation || 'RC'));
+      setField(form, 'CommercialProperty_Premises_CauseOfLossCode_B', val(data.causesOfLoss || 'Special'));
+      setField(form, 'CommercialProperty_Premises_DeductibleAmount_B', money(data.deductible));
+      
+      setField(form, 'CommercialProperty_Premises_SubjectOfInsuranceCode_C', 'Bus Income');
+      setField(form, 'CommercialProperty_Premises_LimitAmount_C', money(loc.biLimit));
+      setField(form, 'CommercialProperty_Premises_CoinsurancePercent_C', val(loc.coinsurance || data.coinsurance || '80'));
+      
+      // Construction details
+      setField(form, 'CommercialStructure_ConstructionTypeCode_A', val(loc.construction));
+      setField(form, 'CommercialStructure_NumberOfStories_A', val(loc.stories));
+      setField(form, 'CommercialStructure_NumberOfBasements_A', val(loc.basements || '0'));
+      setField(form, 'CommercialStructure_YearBuilt_A', val(loc.yearBuilt));
+      setField(form, 'CommercialStructure_TotalArea_A', val(loc.sqFootage));
+      setField(form, 'CommercialStructure_RoofTypeCode_A', val(loc.roofType));
+      setField(form, 'CommercialStructure_ProtectionClassCode_A', val(loc.protectionClass));
+      setField(form, 'CommercialStructure_SprinklerPercent_A', val(loc.sprinklered ? '100' : loc.sprinklerPercentage || '0'));
+      setField(form, 'CommercialStructure_DistanceToHydrant_A', val(loc.distanceToHydrant));
+      
+      // Building improvements
+      setField(form, 'CommercialStructure_WiringYear_A', val(loc.wiringYear));
+      setField(form, 'CommercialStructure_PlumbingYear_A', val(loc.plumbingYear));
+      setField(form, 'CommercialStructure_RoofingYear_A', val(loc.roofingYear));
+      setField(form, 'CommercialStructure_HeatingYear_A', val(loc.heatingYear));
+    }
+    
+    // Location 2
+    if (locs[1]) {
+      const loc = locs[1];
+      setField(form, 'CommercialStructure_Location_ProducerIdentifier_B', val(loc.number || '2'));
+      setField(form, 'CommercialStructure_Building_ProducerIdentifier_B', '1');
+      setField(form, 'CommercialStructure_PhysicalAddress_LineOne_B', val(loc.address));
+      
+      // Use G/H/I slots for location 2 subjects (page 2 of form)
+      setField(form, 'CommercialProperty_Premises_SubjectOfInsuranceCode_G', 'Building');
+      setField(form, 'CommercialProperty_Premises_LimitAmount_G', money(loc.buildingValue));
+      setField(form, 'CommercialProperty_Premises_CoinsurancePercent_G', val(loc.coinsurance || data.coinsurance || '80'));
+      setField(form, 'CommercialProperty_Premises_ValuationCode_G', val(data.valuation || 'RC'));
+      setField(form, 'CommercialProperty_Premises_CauseOfLossCode_G', val(data.causesOfLoss || 'Special'));
+      setField(form, 'CommercialProperty_Premises_DeductibleAmount_G', money(data.deductible));
+      
+      setField(form, 'CommercialProperty_Premises_SubjectOfInsuranceCode_H', 'Contents/BPP');
+      setField(form, 'CommercialProperty_Premises_LimitAmount_H', money(loc.contentsValue));
+      setField(form, 'CommercialProperty_Premises_CoinsurancePercent_H', val(loc.coinsurance || data.coinsurance || '80'));
+      
+      setField(form, 'CommercialProperty_Premises_SubjectOfInsuranceCode_I', 'Bus Income');
+      setField(form, 'CommercialProperty_Premises_LimitAmount_I', money(loc.biLimit));
+      
+      setField(form, 'CommercialStructure_ConstructionTypeCode_B', val(loc.construction));
+      setField(form, 'CommercialStructure_NumberOfStories_B', val(loc.stories));
+      setField(form, 'CommercialStructure_YearBuilt_B', val(loc.yearBuilt));
+      setField(form, 'CommercialStructure_TotalArea_B', val(loc.sqFootage));
+      setField(form, 'CommercialStructure_ProtectionClassCode_B', val(loc.protectionClass));
+      setField(form, 'CommercialStructure_SprinklerPercent_B', val(loc.sprinklered ? '100' : '0'));
+    }
+  }, 'ACORD-140-Property-Section.pdf');
+}
+
+// ===== ACORD 130 — Workers Comp (still jsPDF since no template) =====
+export async function generateAcord130PDF(data: any): Promise<void> {
+  if (!data) return;
+  // Fall back to jsPDF generation for WC since we don't have a template
+  const jsPDF = (await import('jspdf')).default;
   const doc = new jsPDF();
-  let y = drawFormTitle(doc, '125', 'COMMERCIAL INSURANCE APPLICATION', 'APPLICANT INFORMATION SECTION');
-
-  y = drawSectionBar(doc, 'Agency / Carrier', y);
-  y = drawFieldGrid(doc, [
-    { label: 'AGENCY', value: val(data.agency?.name), span: 2 },
-    { label: 'CARRIER', value: val(data.agency?.carrier || 'TBD') },
-    { label: 'PHONE (A/C, No, Ext)', value: val(data.agency?.phone) },
-    { label: 'FAX (A/C, No)', value: val(data.agency?.fax) },
-    { label: 'NAIC CODE', value: val(data.agency?.naicCode) },
-    { label: 'E-MAIL', value: val(data.agency?.email) },
-    { label: 'CODE / SUBCODE', value: val(data.agency?.producerCode) },
-    { label: 'POLICY NUMBER', value: val(data.agency?.policyNumber) },
-  ], y);
-
-  y = checkPage(doc, y, 10);
-  doc.setFontSize(6.5); doc.setFont(FONT, 'bold'); setColor(doc, DARK);
-  doc.text('STATUS OF TRANSACTION:', MARGIN + 2, y + 3);
-  drawCheckItem(doc, 'QUOTE', true, MARGIN + 50, y + 3);
-  drawCheckItem(doc, 'ISSUE POLICY', false, MARGIN + 70, y + 3);
-  drawCheckItem(doc, 'BOUND', false, MARGIN + 100, y + 3);
-  drawCheckItem(doc, 'RENEW', false, MARGIN + 130, y + 3);
-  y += 8;
-
-  y = drawSectionBar(doc, 'Lines of Business', y);
-  const lines = data.linesRequested || [];
-  if (lines.length > 0) {
-    y = drawTable(doc, ['LINE OF BUSINESS', 'PREMIUM', 'LINE OF BUSINESS', 'PREMIUM'],
-      lines.reduce((acc: string[][], line: any, i: number) => {
-        if (i % 2 === 0) {
-          const row = [val(line.line), money(line.currentPremium)];
-          const next = lines[i + 1];
-          row.push(next ? val(next.line) : '', next ? money(next.currentPremium) : '');
-          acc.push(row);
-        }
-        return acc;
-      }, []), y, [70, 30, 70, 24]);
-  } else {
-    y = drawTable(doc, ['LINE OF BUSINESS', 'PREMIUM', 'LINE OF BUSINESS', 'PREMIUM'],
-      [['COMMERCIAL GENERAL LIABILITY', '', 'COMMERCIAL PROPERTY', ''],
-       ['BUSINESS AUTO', '', 'UMBRELLA', ''],
-       ['WORKERS COMPENSATION', '', 'CRIME', '']], y, [70, 30, 70, 24]);
-  }
-
-  y = drawSectionBar(doc, 'Policy Information', y);
-  y = drawFieldGrid(doc, [
-    { label: 'PROPOSED EFF DATE', value: val(data.policyInfo?.effectiveDate) },
-    { label: 'PROPOSED EXP DATE', value: val(data.policyInfo?.expirationDate) },
-    { label: 'BILLING PLAN', value: val(data.policyInfo?.billingPlan || 'Direct') },
-    { label: 'PAYMENT PLAN', value: val(data.policyInfo?.paymentPlan) },
-    { label: 'AUDIT', value: val(data.policyInfo?.audit || 'Annual') },
-    { label: 'POLICY PREMIUM', value: money(data.policyInfo?.totalPremium || data.priorCarrier?.totalPremium) },
-  ], y);
-
-  y = drawSectionBar(doc, 'Applicant Information — First Named Insured', y);
-  y = drawFieldGrid(doc, [
-    { label: 'NAME (First Named Insured)', value: val(data.namedInsured?.name), span: 2 },
-    { label: 'FEIN OR SOC SEC #', value: val(data.namedInsured?.fein) },
-    { label: 'MAILING ADDRESS', value: val(data.namedInsured?.mailingAddress), span: 2 },
-    { label: 'GL CODE', value: val(data.namedInsured?.glCode) },
-    { label: 'CITY', value: val(data.namedInsured?.city) },
-    { label: 'STATE', value: val(data.namedInsured?.state) },
-    { label: 'ZIP', value: val(data.namedInsured?.zip) },
-    { label: 'BUSINESS PHONE #', value: val(data.namedInsured?.phone) },
-    { label: 'WEBSITE ADDRESS', value: val(data.namedInsured?.website) },
-    { label: 'DBA', value: val(data.namedInsured?.dba) },
-  ], y);
-
-  y = checkPage(doc, y, 8);
-  const entityType = val(data.namedInsured?.entityType).toUpperCase();
-  const entities = ['CORPORATION', 'LLC', 'PARTNERSHIP', 'INDIVIDUAL', 'JOINT VENTURE', 'NOT FOR PROFIT'];
-  let ex = MARGIN + 2;
-  entities.forEach(e => { drawCheckItem(doc, e, entityType.includes(e.substring(0, 4)), ex, y + 3); ex += 32; });
-  y += 8;
-
-  y = drawSectionBar(doc, 'Nature of Business / Description of Operations', y);
-  y = drawFieldGrid(doc, [
-    { label: 'NAICS CODE', value: val(data.businessInfo?.naicsCode) },
-    { label: 'SIC CODE', value: val(data.businessInfo?.sicCode) },
-    { label: 'DATE BUSINESS STARTED', value: val(data.businessInfo?.dateStarted) },
-    { label: 'YEARS IN BUSINESS', value: val(data.businessInfo?.yearsInBusiness) },
-    { label: 'TOTAL # EMPLOYEES', value: val(data.businessInfo?.totalEmployees) },
-    { label: 'TOTAL LOCATIONS', value: val(data.businessInfo?.totalLocations) },
-    { label: 'ANNUAL REVENUE', value: money(data.businessInfo?.totalAnnualRevenue) },
-    { label: 'NATURE OF BUSINESS', value: val(data.businessInfo?.natureOfBusiness) },
-    { label: 'DESCRIPTION OF PRIMARY OPERATIONS', value: val(data.businessInfo?.descriptionOfOperations), span: 3 },
-  ], y, 3);
-
-  const locations = data.premisesInfo || data.locations || [];
-  if (locations.length > 0) {
-    y = drawSectionBar(doc, 'Premises Information', y);
-    for (const loc of locations) {
-      y = drawFieldGrid(doc, [
-        { label: 'LOC #', value: val(loc.number || loc.locNumber) },
-        { label: 'BLD #', value: val(loc.buildingNumber || '1') },
-        { label: 'STREET', value: val(loc.address || loc.street) },
-        { label: 'CITY', value: val(loc.city) }, { label: 'STATE', value: val(loc.state) }, { label: 'ZIP', value: val(loc.zip) },
-        { label: '# FULL TIME EMPL', value: val(loc.fullTimeEmployees) },
-        { label: '# PART TIME EMPL', value: val(loc.partTimeEmployees) },
-        { label: 'ANNUAL REVENUES', value: money(loc.annualRevenues || loc.revenue) },
-        { label: 'TOTAL BUILDING AREA SQ FT', value: val(loc.sqFootage || loc.totalArea) },
-        { label: 'INTEREST', value: val(loc.interest || 'Owner') },
-        { label: 'DESCRIPTION OF OPERATIONS', value: val(loc.description || loc.operations) },
-      ], y, 3);
+  
+  doc.setFillColor(30, 30, 30);
+  doc.rect(8, 10, 194, 10, 'F');
+  doc.setFontSize(11);
+  doc.setFont('helvetica', 'bold');
+  doc.setTextColor(255, 255, 255);
+  doc.text('ACORD 130 — WORKERS COMPENSATION APPLICATION', 105, 17, { align: 'center' });
+  doc.setTextColor(0, 0, 0);
+  
+  let y = 28;
+  const addField = (label: string, value: string, x: number, w: number) => {
+    doc.setDrawColor(180, 180, 180);
+    doc.rect(x, y, w, 10);
+    doc.setFontSize(5.5);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(80, 80, 80);
+    doc.text(label, x + 1.5, y + 3.5);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(0, 51, 102);
+    doc.text(value || '', x + 1.5, y + 8);
+  };
+  
+  addField('STATE', val(data.state), 8, 64.7);
+  addField('TOTAL ANNUAL PAYROLL', '$' + money(data.totalPayroll), 72.7, 64.7);
+  addField('EST ANNUAL PREMIUM', '$' + money(data.totalPremium), 137.4, 64.6);
+  y += 10;
+  addField('EMR', val(data.emr), 8, 64.7);
+  addField('DEDUCTIBLE', '$' + money(data.deductible), 72.7, 64.7);
+  addField('EL EACH ACCIDENT', '$' + money(data.elEachAccident || 1000000), 137.4, 64.6);
+  y += 10;
+  
+  doc.setTextColor(0, 0, 0);
+  doc.setFont('helvetica', 'normal');
+  
+  if (data.classificationCodes?.length) {
+    y += 4;
+    doc.setFillColor(30, 30, 30);
+    doc.rect(8, y, 194, 6, 'F');
+    doc.setFontSize(7.5);
+    doc.setFont('helvetica', 'bold');
+    doc.setTextColor(255, 255, 255);
+    doc.text('CLASSIFICATION CODES', 10, y + 4.2);
+    doc.setTextColor(0, 0, 0);
+    y += 8;
+    
+    for (const cls of data.classificationCodes) {
+      addField('CODE', val(cls.code), 8, 25);
+      addField('DESCRIPTION', val(cls.description), 33, 70);
+      addField('PAYROLL', '$' + money(cls.payroll), 103, 40);
+      addField('RATE', val(cls.rate), 143, 25);
+      addField('PREMIUM', '$' + money(cls.premium), 168, 34);
+      y += 10;
     }
   }
-
-  y = drawSectionBar(doc, 'Prior Carrier Information', y);
-  y = drawFieldGrid(doc, [
-    { label: 'CARRIER', value: val(data.priorCarrier?.name) },
-    { label: 'POLICY NUMBER', value: val(data.priorCarrier?.policyNumber) },
-    { label: 'PREMIUM', value: money(data.priorCarrier?.totalPremium) },
-    { label: 'EFFECTIVE DATE', value: val(data.priorCarrier?.effectiveDate) },
-    { label: 'EXPIRATION DATE', value: val(data.priorCarrier?.expirationDate) },
-    { label: 'YEARS WITH CARRIER', value: val(data.priorCarrier?.yearsWithCarrier) },
-  ], y);
-
-  const losses = data.lossHistory || [];
-  if (losses.length > 0) {
-    y = drawSectionBar(doc, 'Loss History', y);
-    y = drawTable(doc,
-      ['YEAR', 'LINE TYPE', '# CLAIMS', 'TOTAL INCURRED', 'AMT PAID', 'AMT RESERVED', 'DESCRIPTION'],
-      losses.map((l: any) => [val(l.year), val(l.line), val(l.claims || l.numberOfClaims), money(l.totalIncurred), money(l.amountPaid), money(l.amountReserved), val(l.description)]),
-      y, [18, 28, 18, 28, 28, 28, 46]);
-  }
-
-  y = drawSectionBar(doc, 'General Information', y);
-  ['Is the applicant a subsidiary of another entity?', 'Does the applicant have any subsidiaries?',
-   'Any exposure to flammables, explosives, chemicals?', 'Any other insurance with this company?',
-   'Any policy declined, cancelled or non-renewed in prior 3 years?', 'Any foreign operations?'].forEach(q => {
-    y = checkPage(doc, y, 7);
-    drawCheckItem(doc, q, false, MARGIN + 2, y + 3);
-    doc.setFontSize(7); doc.setFont(FONT, 'bold'); doc.text('NO', MARGIN + FORM_W - 10, y + 3);
-    doc.setFont(FONT, 'normal'); y += 6;
-  });
-
-  y = checkPage(doc, y, 25);
-  y = drawSectionBar(doc, 'Signature', y);
-  doc.setFontSize(6); setColor(doc, GRAY_LABEL);
-  doc.text('THE UNDERSIGNED IS AN AUTHORIZED REPRESENTATIVE OF THE APPLICANT AND REPRESENTS THAT REASONABLE', MARGIN + 2, y + 3);
-  doc.text('INQUIRY HAS BEEN MADE TO OBTAIN THE ANSWERS TO QUESTIONS ON THIS APPLICATION.', MARGIN + 2, y + 6.5);
-  y += 12;
-  y = drawFieldGrid(doc, [
-    { label: "APPLICANT'S SIGNATURE", value: '' },
-    { label: "PRODUCER'S SIGNATURE", value: '' },
-    { label: 'DATE', value: new Date().toLocaleDateString() },
-  ], y);
-
-  drawFooter(doc, '125');
-  doc.save('ACORD-125-Commercial-Application.pdf');
-}
-
-// ===== ACORD 126 =====
-export function generateAcord126PDF(data: any): void {
-  if (!data) return;
-  const doc = new jsPDF();
-  let y = drawFormTitle(doc, '126', 'COMMERCIAL GENERAL LIABILITY SECTION');
-
-  y = drawSectionBar(doc, 'Coverages / Limits', y);
-  y = checkPage(doc, y, 8);
-  doc.setFontSize(7); doc.setFont(FONT, 'bold'); setColor(doc, DARK);
-  doc.text('COMMERCIAL GENERAL LIABILITY', MARGIN + 2, y + 3);
-  drawCheckItem(doc, 'OCCURRENCE', data.coverageType !== 'claims-made', MARGIN + 65, y + 3);
-  drawCheckItem(doc, 'CLAIMS MADE', data.coverageType === 'claims-made', MARGIN + 100, y + 3);
-  y += 8;
-
-  y = drawFieldGrid(doc, [
-    { label: 'EACH OCCURRENCE', value: money(data.limitsRequested?.eachOccurrence) },
-    { label: 'GENERAL AGGREGATE', value: money(data.limitsRequested?.generalAggregate) },
-    { label: 'PRODUCTS & COMPLETED OPS AGG', value: money(data.limitsRequested?.productsCompletedOpsAggregate) },
-    { label: 'PERSONAL & ADVERTISING INJURY', value: money(data.limitsRequested?.personalAdvertisingInjury) },
-    { label: 'DAMAGE TO RENTED PREMISES (ea occ)', value: money(data.limitsRequested?.damageToRentedPremises) },
-    { label: 'MEDICAL EXPENSE (any one person)', value: money(data.limitsRequested?.medicalExpense) },
-    { label: 'EMPLOYEE BENEFITS', value: money(data.limitsRequested?.employeeBenefits) },
-  ], y, 3);
-
-  y = checkPage(doc, y, 8);
-  doc.setFontSize(6.5); doc.setFont(FONT, 'normal'); setColor(doc, DARK);
-  doc.text('GENERAL AGGREGATE LIMIT APPLIES PER:', MARGIN + 2, y + 3);
-  drawCheckItem(doc, 'POLICY', true, MARGIN + 70, y + 3);
-  drawCheckItem(doc, 'PROJECT', false, MARGIN + 95, y + 3);
-  drawCheckItem(doc, 'LOCATION', false, MARGIN + 120, y + 3);
-  y += 8;
-
-  y = drawFieldGrid(doc, [
-    { label: 'DEDUCTIBLE — BODILY INJURY', value: money(data.deductibles?.bodilyInjury) },
-    { label: 'DEDUCTIBLE — PROPERTY DAMAGE', value: money(data.deductibles?.propertyDamage) },
-    { label: 'PER: ☑ OCCURRENCE / ☐ CLAIM', value: '' },
-  ], y);
-
-  y = drawSectionBar(doc, 'Schedule of Hazards — Rating and Premium Basis', y);
-  const cls = data.classifications || (data.classification ? [data.classification] : []);
-  if (cls.length > 0) {
-    y = drawTable(doc, ['LOC #', 'CLASSIFICATION DESCRIPTION', 'CODE', 'PREMIUM BASIS', 'EXPOSURE', 'RATE', 'PREMIUM'],
-      cls.map((c: any) => [val(c.locationNumber || '1'), val(c.description), val(c.code), val(c.premiumBasis || 'Gross Sales'), money(c.grossReceipts || c.exposure), val(c.rate), money(c.premium)]),
-      y, [16, 50, 22, 30, 26, 20, 30]);
-  }
-
-  y = drawFieldGrid(doc, [
-    { label: 'PREMISES/OPERATIONS PREMIUM', value: money(data.premiums?.premisesOperations) },
-    { label: 'PRODUCTS PREMIUM', value: money(data.premiums?.products) },
-    { label: 'TOTAL PREMIUM', value: money(data.premiums?.total || data.totalPremium) },
-  ], y);
-
-  if (data.liquorLiability?.included) {
-    y = drawSectionBar(doc, 'Liquor Liability', y);
-    y = drawFieldGrid(doc, [
-      { label: 'LIQUOR LIABILITY INCLUDED', value: 'YES' },
-      { label: 'LIQUOR SALES %', value: val(data.liquorLiability.liquorSalesPercentage) + '%' },
-      { label: 'LIQUOR RECEIPTS', value: money(data.liquorLiability.liquorReceipts || data.classification?.liquorReceipts) },
-      { label: 'EACH OCCURRENCE', value: money(data.liquorLiability.eachOccurrence) },
-      { label: 'AGGREGATE', value: money(data.liquorLiability.aggregate) },
-      { label: 'LICENSE #', value: val(data.liquorLiability.licenseNumber) },
-    ], y);
-  }
-
-  if (data.additionalCoverages?.length > 0) {
-    y = drawSectionBar(doc, 'Other Coverages / Endorsements', y);
-    for (const cov of data.additionalCoverages) {
-      y = checkPage(doc, y, 7);
-      drawCheckItem(doc, typeof cov === 'string' ? cov : cov.name || JSON.stringify(cov), true, MARGIN + 2, y + 3);
-      y += 6;
-    }
-    y += 2;
-  }
-
-  y = drawSectionBar(doc, 'Products / Completed Operations', y);
-  ['Does applicant install, service or demonstrate products?', 'Foreign products sold, distributed, used as components?',
-   'Research and development conducted or new products planned?', 'Guarantees, warranties, hold harmless agreements?',
-   'Products recalled, discontinued, changed?'].forEach(q => {
-    y = checkPage(doc, y, 7);
-    drawCheckItem(doc, q, false, MARGIN + 2, y + 3);
-    doc.setFontSize(7); doc.setFont(FONT, 'bold'); doc.text('NO', MARGIN + FORM_W - 10, y + 3);
-    doc.setFont(FONT, 'normal'); y += 6;
-  });
-
-  y = drawSectionBar(doc, 'General Information', y);
-  ['Any exposure to radioactive/nuclear materials?', 'Operations involve hazardous material?',
-   'Any operations sold, acquired, or discontinued in last 5 years?', 'Any watercraft, docks, floats owned?',
-   'Any parking facilities owned/rented?', 'Recreation facilities provided?',
-   'Any lodging operations including apartments?'].forEach(q => {
-    y = checkPage(doc, y, 7);
-    drawCheckItem(doc, q, false, MARGIN + 2, y + 3);
-    doc.setFontSize(7); doc.setFont(FONT, 'bold'); doc.text('NO', MARGIN + FORM_W - 10, y + 3);
-    doc.setFont(FONT, 'normal'); y += 6;
-  });
-
-  y = checkPage(doc, y, 20);
-  y = drawSectionBar(doc, 'Signature', y);
-  y = drawFieldGrid(doc, [
-    { label: "APPLICANT'S SIGNATURE", value: '' },
-    { label: "PRODUCER'S SIGNATURE", value: '' },
-    { label: 'DATE', value: new Date().toLocaleDateString() },
-  ], y);
-
-  drawFooter(doc, '126');
-  doc.save('ACORD-126-General-Liability.pdf');
-}
-
-// ===== ACORD 140 =====
-export function generateAcord140PDF(data: any): void {
-  if (!data) return;
-  const doc = new jsPDF();
-  let y = drawFormTitle(doc, '140', 'PROPERTY SECTION');
-
-  y = drawSectionBar(doc, 'Property Coverage Summary', y);
-  y = drawFieldGrid(doc, [
-    { label: 'TOTAL BUILDING VALUE', value: money(data.totalBuildingValue) },
-    { label: 'TOTAL CONTENTS VALUE', value: money(data.totalContentsValue) },
-    { label: 'BUSINESS INCOME LIMIT', value: money(data.totalBILimit) },
-    { label: 'CAUSES OF LOSS', value: val(data.causesOfLoss || 'Special') },
-    { label: 'VALUATION', value: val(data.valuation || 'Replacement Cost') },
-    { label: 'COINSURANCE', value: val(data.coinsurance || '80%') },
-    { label: 'DEDUCTIBLE', value: money(data.deductible) },
-    { label: 'INFLATION GUARD %', value: val(data.inflationGuard) },
-    { label: 'BLANKET', value: val(data.blanket ? 'YES' : 'NO') },
-  ], y);
-
-  const locs = data.locations || [];
-  if (locs.length > 0) {
-    y = drawSectionBar(doc, 'Schedule of Locations / Buildings', y);
-    for (let i = 0; i < locs.length; i++) {
-      const loc = locs[i];
-      y = checkPage(doc, y, 50);
-      doc.setFontSize(8); doc.setFont(FONT, 'bold'); setColor(doc, BLUE_DARK);
-      doc.text('LOCATION #' + (loc.number || i + 1) + ': ' + val(loc.address), MARGIN + 2, y + 3);
-      setColor(doc, BLACK); y += 6;
-
-      y = drawFieldGrid(doc, [
-        { label: 'SUBJECT OF INSURANCE', value: 'Building' }, { label: 'AMOUNT', value: money(loc.buildingValue) }, { label: 'COINS %', value: val(loc.coinsurance || data.coinsurance || '80%') },
-      ], y);
-      y = drawFieldGrid(doc, [
-        { label: 'SUBJECT OF INSURANCE', value: 'Contents / BPP' }, { label: 'AMOUNT', value: money(loc.contentsValue) }, { label: 'COINS %', value: val(loc.coinsurance || data.coinsurance || '80%') },
-      ], y);
-      y = drawFieldGrid(doc, [
-        { label: 'SUBJECT OF INSURANCE', value: 'Business Income' }, { label: 'AMOUNT', value: money(loc.biLimit) }, { label: 'FORMS & CONDITIONS', value: val(data.causesOfLoss || 'Special') },
-      ], y);
-
-      y = drawFieldGrid(doc, [
-        { label: 'CONSTRUCTION TYPE', value: val(loc.construction) },
-        { label: '# STORIES', value: val(loc.stories) },
-        { label: '# BASEMENTS', value: val(loc.basements || '0') },
-        { label: 'YR BUILT', value: val(loc.yearBuilt) },
-        { label: 'TOTAL AREA (SQ FT)', value: val(loc.sqFootage ? Number(loc.sqFootage).toLocaleString() : '') },
-        { label: 'ROOF TYPE', value: val(loc.roofType) },
-      ], y);
-
-      y = drawFieldGrid(doc, [
-        { label: 'PROTECTION CLASS', value: val(loc.protectionClass) },
-        { label: '% SPRINKLERED', value: val(loc.sprinklered ? '100%' : loc.sprinklerPercentage || 'None') },
-        { label: 'DISTANCE TO HYDRANT (FT)', value: val(loc.distanceToHydrant) },
-        { label: 'FIRE ALARM', value: val(loc.fireAlarm || (loc.sprinklered ? 'Central Station' : 'None')) },
-        { label: 'BURGLAR ALARM', value: val(loc.burglarAlarm) },
-        { label: 'HEATING SOURCE', value: val(loc.heatingSource) },
-      ], y);
-
-      y = drawFieldGrid(doc, [
-        { label: 'WIRING, YR', value: val(loc.wiringYear) }, { label: 'PLUMBING, YR', value: val(loc.plumbingYear) },
-        { label: 'ROOFING, YR', value: val(loc.roofingYear) }, { label: 'HEATING, YR', value: val(loc.heatingYear) },
-        { label: 'OTHER OCCUPANCIES', value: val(loc.otherOccupancies) }, { label: 'WIND CLASS', value: val(loc.windClass) },
-      ], y);
-
-      y += 4;
-    }
-  }
-
-  y = drawSectionBar(doc, 'Additional Coverages / Options', y);
-  ['Spoilage Coverage', 'Business Income / Extra Expense', 'Sinkhole Coverage', 'Mine Subsidence Coverage', 'Ordinance or Law'].forEach(c => {
-    y = checkPage(doc, y, 7);
-    drawCheckItem(doc, c, c.includes('Business Income'), MARGIN + 2, y + 3);
-    y += 6;
-  });
-
-  if (data.totalBuildingValue) {
-    y = drawSectionBar(doc, 'Blanket Summary', y);
-    y = drawFieldGrid(doc, [
-      { label: 'BLANKET # / TYPE', value: '1 — Building' }, { label: 'AMOUNT', value: money(data.totalBuildingValue) }, { label: 'DEDUCTIBLE', value: money(data.deductible) },
-      { label: 'BLANKET # / TYPE', value: '2 — Contents' }, { label: 'AMOUNT', value: money(data.totalContentsValue) }, { label: 'DEDUCTIBLE', value: money(data.deductible) },
-    ], y);
-  }
-
-  y = checkPage(doc, y, 20);
-  y = drawSectionBar(doc, 'Signature', y);
-  y = drawFieldGrid(doc, [
-    { label: "APPLICANT'S SIGNATURE", value: '' }, { label: "PRODUCER'S SIGNATURE", value: '' }, { label: 'DATE', value: new Date().toLocaleDateString() },
-  ], y);
-
-  drawFooter(doc, '140');
-  doc.save('ACORD-140-Property-Section.pdf');
-}
-
-// ===== ACORD 130 =====
-export function generateAcord130PDF(data: any): void {
-  if (!data) return;
-  const doc = new jsPDF();
-  let y = drawFormTitle(doc, '130', "WORKERS COMPENSATION APPLICATION");
-
-  y = drawSectionBar(doc, 'Policy Information', y);
-  y = drawFieldGrid(doc, [
-    { label: 'STATE', value: val(data.state) }, { label: 'TOTAL ANNUAL PAYROLL', value: money(data.totalPayroll) }, { label: 'ESTIMATED ANNUAL PREMIUM', value: money(data.totalPremium) },
-    { label: 'EXPERIENCE MODIFICATION RATE', value: val(data.emr) }, { label: 'DEDUCTIBLE', value: money(data.deductible) }, { label: 'ANNIVERSARY RATING DATE', value: val(data.anniversaryDate) },
-  ], y);
-
-  y = drawSectionBar(doc, 'Workers Compensation & Employers Liability Limits', y);
-  y = drawFieldGrid(doc, [
-    { label: 'WC STATUTORY LIMITS', value: 'Per Statute' }, { label: 'EL EACH ACCIDENT', value: money(data.elEachAccident || 1000000) },
-    { label: 'EL DISEASE — EA EMPLOYEE', value: money(data.elDiseaseEmployee || 1000000) }, { label: 'EL DISEASE — POLICY LIMIT', value: money(data.elDiseasePolicyLimit || 1000000) },
-    { label: 'OTHER STATES COVERAGE', value: val(data.otherStates) }, { label: 'USL&H / VOLUNTARY COMP', value: val(data.uslh ? 'Included' : 'Not Included') },
-  ], y);
-
-  if (data.classificationCodes?.length > 0) {
-    y = drawSectionBar(doc, 'Classification Codes', y);
-    y = drawTable(doc, ['CODE', 'CLASSIFICATION DESCRIPTION', 'LOC', '# EMP', 'EST ANNUAL PAYROLL', 'RATE', 'EST PREMIUM'],
-      data.classificationCodes.map((c: any) => [val(c.code), val(c.description), val(c.location || '1'), val(c.employees), money(c.payroll), val(c.rate), money(c.premium)]),
-      y, [20, 52, 14, 14, 30, 20, 28]);
-  }
-
-  y = drawSectionBar(doc, 'Premium Calculation', y);
-  y = drawFieldGrid(doc, [
-    { label: 'MANUAL PREMIUM', value: money(data.manualPremium || data.totalPremium) }, { label: 'EXPERIENCE MODIFICATION', value: val(data.emr || '1.00') },
-    { label: 'MODIFIED PREMIUM', value: money(data.modifiedPremium || data.totalPremium) }, { label: 'SCHEDULE CREDIT/DEBIT', value: val(data.scheduleCredit) },
-    { label: 'EXPENSE CONSTANT', value: money(data.expenseConstant) }, { label: 'TOTAL EST ANNUAL PREMIUM', value: money(data.totalPremium) },
-  ], y);
-
-  y = checkPage(doc, y, 20);
-  y = drawSectionBar(doc, 'Signature', y);
-  y = drawFieldGrid(doc, [
-    { label: "APPLICANT'S SIGNATURE", value: '' }, { label: "PRODUCER'S SIGNATURE", value: '' }, { label: 'DATE', value: new Date().toLocaleDateString() },
-  ], y);
-
-  drawFooter(doc, '130');
+  
   doc.save('ACORD-130-Workers-Compensation.pdf');
 }
 
-export function generateAllAcordPDFs(formData: any): void {
+// ===== Download All =====
+export async function generateAllAcordPDFs(formData: any): Promise<void> {
   if (!formData) return;
-  if (formData.acord125) generateAcord125PDF(formData.acord125);
-  if (formData.acord126) generateAcord126PDF(formData.acord126);
-  if (formData.acord140) generateAcord140PDF(formData.acord140);
-  if (formData.acord130) generateAcord130PDF(formData.acord130);
+  if (formData.acord125) await generateAcord125PDF(formData.acord125);
+  if (formData.acord126) await generateAcord126PDF(formData.acord126);
+  if (formData.acord140) await generateAcord140PDF(formData.acord140);
+  if (formData.acord130) await generateAcord130PDF(formData.acord130);
 }

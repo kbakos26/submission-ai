@@ -14,8 +14,6 @@ import {
   sampleClient,
 } from '@/lib/synthetic-data';
 import { analyzeDocumentText } from '@/lib/ai-client';
-import { generateAcord125PDF, generateAcord126PDF, generateAcord130PDF, generateAcord140PDF, generateAllAcordPDFs } from '@/lib/acord-pdf';
-import { generateAcordXML } from '@/lib/acord-xml';
 import { ExtractedField, UploadedDocument, RequiredDocument } from '@/types';
 
 const steps = [
@@ -920,7 +918,7 @@ function AcordFormsStep({
             <div className="flex gap-3">
               <button
                 onClick={() => {
-                  generateAllAcordPDFs(formData);
+                  import('@/lib/acord-pdf').then(m => m.generateAllAcordPDFs(formData));
                   showToast('Downloading all ACORD PDFs...');
                 }}
                 className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
@@ -929,7 +927,7 @@ function AcordFormsStep({
               </button>
               <button
                 onClick={() => {
-                  generateAcordXML(formData);
+                  import('@/lib/acord-xml').then(m => m.generateAcordXML(formData));
                   showToast('Downloading ACORD XML...');
                 }}
                 className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
@@ -978,7 +976,7 @@ function AcordFormsStep({
               <div className="flex gap-3 mb-6 pb-4 border-b border-[var(--border)]">
                 <button
                   onClick={() => {
-                    generateAcord125PDF(formData.acord125);
+                    import('@/lib/acord-pdf').then(m => m.generateAcord125PDF(formData.acord125));
                     showToast('Downloading ACORD 125 PDF...');
                   }}
                   className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
@@ -987,7 +985,7 @@ function AcordFormsStep({
                 </button>
                 <button
                   onClick={() => {
-                    generateAcordXML(formData);
+                    import('@/lib/acord-xml').then(m => m.generateAcordXML(formData));
                     showToast('Downloading ACORD XML...');
                   }}
                   className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
@@ -1003,7 +1001,7 @@ function AcordFormsStep({
               <div className="flex gap-3 mb-6 pb-4 border-b border-[var(--border)]">
                 <button
                   onClick={() => {
-                    generateAcord126PDF(formData.acord126);
+                    import('@/lib/acord-pdf').then(m => m.generateAcord126PDF(formData.acord126));
                     showToast('Downloading ACORD 126 PDF...');
                   }}
                   className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
@@ -1012,7 +1010,7 @@ function AcordFormsStep({
                 </button>
                 <button
                   onClick={() => {
-                    generateAcordXML(formData);
+                    import('@/lib/acord-xml').then(m => m.generateAcordXML(formData));
                     showToast('Downloading ACORD XML...');
                   }}
                   className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
@@ -1028,7 +1026,7 @@ function AcordFormsStep({
               <div className="flex gap-3 mb-6 pb-4 border-b border-[var(--border)]">
                 <button
                   onClick={() => {
-                    generateAcord140PDF(formData.acord140);
+                    import('@/lib/acord-pdf').then(m => m.generateAcord140PDF(formData.acord140));
                     showToast('Downloading ACORD 140 PDF...');
                   }}
                   className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
@@ -1037,7 +1035,7 @@ function AcordFormsStep({
                 </button>
                 <button
                   onClick={() => {
-                    generateAcordXML(formData);
+                    import('@/lib/acord-xml').then(m => m.generateAcordXML(formData));
                     showToast('Downloading ACORD XML...');
                   }}
                   className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
@@ -1053,7 +1051,7 @@ function AcordFormsStep({
               <div className="flex gap-3 mb-6 pb-4 border-b border-[var(--border)]">
                 <button
                   onClick={() => {
-                    generateAcord130PDF(formData.acord130);
+                    import('@/lib/acord-pdf').then(m => m.generateAcord130PDF(formData.acord130));
                     showToast('Downloading ACORD 130 PDF...');
                   }}
                   className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
@@ -1062,7 +1060,7 @@ function AcordFormsStep({
                 </button>
                 <button
                   onClick={() => {
-                    generateAcordXML(formData);
+                    import('@/lib/acord-xml').then(m => m.generateAcordXML(formData));
                     showToast('Downloading ACORD XML...');
                   }}
                   className="px-4 py-2 border border-[var(--border)] bg-white text-[var(--text-primary)] text-sm rounded-lg hover:bg-[var(--bg-card-hover)] transition-all flex items-center gap-2"
