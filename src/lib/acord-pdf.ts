@@ -410,6 +410,8 @@ export async function generateAllAcordPDFs(formData: any, selectedForms?: string
     fillAcord125(form, formData?.acord125);
     fillAcord126(form, formData?.acord126);
     fillAcord140(form, formData?.acord140);
+    const font = await masterDoc.embedFont(StandardFonts.Helvetica);
+    form.updateFieldAppearances(font);
     form.flatten();
     
     for (const f of forms.filter(f => masterForms.includes(f))) {
