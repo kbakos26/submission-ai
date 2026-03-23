@@ -1,36 +1,40 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# SubmissionAI
 
-## Getting Started
+AI-powered commercial insurance submission automation. Upload broker documents, select lines of business, and generate complete ACORD form packages in minutes instead of hours.
 
-First, run the development server:
+## What It Does
+
+Commercial insurance brokers spend 4-7 hours per submission manually transferring data between documents and ACORD forms. SubmissionAI reduces that to under 30 minutes.
+
+**The Flow:**
+1. **Upload Documents** — Drag & drop dec pages, loss runs, property schedules. AI extracts and structures the data.
+2. **Select Lines of Business** — Pick coverage lines (GL, Property, WC, Auto, Umbrella, etc.). System maps to required ACORD forms.
+3. **Review & Complete** — See what data was found vs. what's missing. Fill in gaps inline.
+4. **Download Package** — Get filled ACORD PDFs (125, 126, 127, 130, 131, 140), cover letter, and XML export.
+
+## Tech Stack
+
+- **Next.js 15** / React 19 / TypeScript
+- **OpenAI GPT-4o** — Document parsing, data extraction, cover letter generation
+- **pdf-lib** — Fills real ACORD AcroForm templates (not generated PDFs)
+- **Vercel** — Deployment
+
+## Key Technical Decisions
+
+- **Client-side AI pipeline** — PDF text extraction happens server-side, AI analysis runs client-side to bypass Vercel's 10-second function timeout
+- **Real ACORD templates** — Uses actual fillable ACORD form PDFs with 924+ AcroForm fields, filled via pdf-lib with embedded Helvetica font
+- **SessionStorage persistence** — Parsed data persists across step navigation and page refresh
+- **Dynamic form mapping** — Lines of business selection determines which ACORD forms are required and what data fields are needed
+
+## Running Locally
 
 ```bash
+npm install
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Set `NEXT_PUBLIC_OPENAI_API_KEY` in `.env.local` for AI features.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Live Demo
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+[submission-ai.vercel.app](https://submission-ai.vercel.app)
